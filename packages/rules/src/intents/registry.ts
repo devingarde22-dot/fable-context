@@ -31,6 +31,9 @@ export function buildEnemyRegistry(
     if (!Number.isInteger(template.hp) || template.hp <= 0 || !Number.isFinite(template.defense) || template.defense < 0) {
       throw new Error(`Invalid stats in enemy template ${template.key}`);
     }
+    if (template.basicAttack.handler !== "melee_strike" || !Number.isFinite(template.basicAttack.rawDamage) || template.basicAttack.rawDamage <= 0) {
+      throw new Error(`Invalid basic attack in enemy template ${template.key}`);
+    }
     for (const intentKey of template.intentKeys) {
       const intent = intents.get(intentKey);
       if (!intent) throw new Error(`Unknown intent ${intentKey} in enemy template ${template.key}`);
@@ -38,7 +41,11 @@ export function buildEnemyRegistry(
     if (template.initialIntentKey && !template.intentKeys.includes(template.initialIntentKey)) {
       throw new Error(`Initial intent ${template.initialIntentKey} is not registered by enemy ${template.key}`);
     }
-    registry.set(template.key, { ...template, intentKeys: [...template.intentKeys] });
+    registry.set(template.key, {
+      ...template,
+      basicAttack: { ...template.basicAttack },
+      intentKeys: [...template.intentKeys],
+    });
   }
   return registry;
 }

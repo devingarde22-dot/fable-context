@@ -50,6 +50,7 @@
 
 Рабочие числа являются tuning values. Контракт намерений считается правильным даже если HP/урон будут изменены после playtest.
 
+Enemy basic-attack templates include immediate `basicAttack` data (not timed intents): `quarantine_chaser` = `{handler: 'melee_strike', rawDamage: 140}`, `slag_shooter` = `{handler: 'melee_strike', rawDamage: 100}`, `extinguisher` = `{handler: 'melee_strike', rawDamage: 100}`. Retreat attack resolution, mode transitions, immunity and replay follow [DR-C-003](./16-step-c-retreat-resolution.md).
 ### 2.3 Intent values
 
 | Intent | Таймер | Условие | Эффект |
@@ -170,6 +171,7 @@ criticalDamage = ceil(finalDamage × 1.5)
 ## 6. Acceptance criteria
 
 ### Сервер и симуляция
+- [ ] retreat из melee — одна event group/revision; eligible attacks sorted by `enemyId`, coefficient `1/attackOrder`, HP floors at zero, and no `hp.changed` when unchanged; ranged-to-movement contact without immunity immediately enters melee; replay preserves mode/HP/immunity/group/hash per DR-C-003;
 
 - [ ] headless-сцена проходит без браузера;
 - [ ] fixed seed воспроизводит одинаковые результаты;

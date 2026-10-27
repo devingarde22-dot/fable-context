@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createSimulationEngine } from "../src/engine/SimulationEngine.js";
 import { cellIndex } from "../src/grid/Grid.js";
-import { enemy, gameplayState, hero, moveCommand, testConfig } from "./createTestEngine.js";
+import { enemy, gameplayState, hero, modeCommand, moveCommand, testConfig } from "./createTestEngine.js";
 
 describe("player.move integration", () => {
   it.each([
@@ -59,7 +59,6 @@ describe("player.move integration", () => {
 
   it("blocks movement through enemy, ally, wall and statue occupied/terrain cells", () => {
     for (const { blocker, terrain, target } of [
-      { blocker: enemy("enemy-1", 2, 1), terrain: [] as const, target: "enemy" },
       { blocker: hero("hero-2", 2, 1), terrain: [] as const, target: "ally" },
       { blocker: undefined, terrain: [{ cell: { x: 2, y: 1 }, terrain: "wall" as const }], target: "wall" },
       { blocker: undefined, terrain: [{ cell: { x: 2, y: 1 }, terrain: "statue" as const }], target: "statue" },
@@ -73,6 +72,22 @@ describe("player.move integration", () => {
       expect(engine.snapshot().sceneRevision).toBe(0);
       expect(engine.events()).toHaveLength(0);
     }
+  });
+
+  it("rejects movement into an enemy-occupied cell while retreat contact immunity is active", () => {
+    const engine = createSimulationEngine(testConfig({
+      entities: [hero("hero-1", 1, 1, "melee"), enemy("enemy-1", 2, 1)],
+    }));
+    engine.submit(modeCommand("player.enter_movement_mode", "retreat"));
+    const retreat = engine.advanceTicks(5).at(-1);
+    expect(retreat?.commandResults[0]?.status).toBe("accepted");
+    expect(engine.snapshot().scene.contactImmunityUntilTick.get("hero-1")).toBe(305);
+
+    engine.submit(moveCommand("blocked-by-enemy", "right", { revision: 1 }));
+    const result = engine.advanceTicks(5).at(-1);
+    expect(result?.commandResults[0]).toMatchObject({ status: "rejected", code: "CELL_OCCUPIED" });
+    expect(engine.snapshot().entities.find((entity) => entity.id === "hero-1")?.position).toEqual({ x: 1, y: 1 });
+    expect(engine.snapshot().sceneRevision).toBe(1);
   });
 
   it("rejects stale revision, unauthorized actor, invalid mode, and duplicate request", () => {

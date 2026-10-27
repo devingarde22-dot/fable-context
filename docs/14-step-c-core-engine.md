@@ -181,6 +181,7 @@ export type CellRuntime = {
 ```ts
 export type EntityRuntime = {
   id: EntityId;
+  canEnterRangedMode?: boolean; // required on HeroRuntime; authoritative and included in snapshot/hash/replay
   kind: "hero" | "enemy" | "npc" | "summon";
   templateKey: string;
   faction: "party" | "enemy" | "neutral";
@@ -446,19 +447,19 @@ INVALID_STATE
 ```text
 OUT_OF_COMBAT
 ├─ player.enter_movement_mode → MOVEMENT
-├─ player.enter_ranged_mode + ranged card exists → RANGED_COMBAT
+├─ player.enter_ranged_mode + hero.canEnterRangedMode === true → RANGED_COMBAT
 └─ contact with enemy → MELEE_COMBAT
 
 MOVEMENT
-├─ player.move + free cell → MOVEMENT
+├─ player.move + free cell → MOVEMENT; then contact check
 ├─ contact + immunity expired → MELEE_COMBAT
-├─ player.enter_ranged_mode + ranged card exists → RANGED_COMBAT
+├─ player.enter_ranged_mode + hero.canEnterRangedMode === true → RANGED_COMBAT
 └─ scene end → OUT_OF_COMBAT
 
 RANGED_COMBAT
 ├─ allowed ranged/universal card → RANGED_COMBAT
-├─ player.enter_movement_mode → MOVEMENT
-├─ move/contact while immunity expired → MELEE_COMBAT
+├─ player.enter_movement_mode → MOVEMENT; then contact check
+├─ contact → MELEE_COMBAT (no immunity and no retreat)
 └─ scene end → OUT_OF_COMBAT
 
 MELEE_COMBAT
@@ -468,27 +469,11 @@ MELEE_COMBAT
 └─ scene end → OUT_OF_COMBAT
 ```
 
-### Контакт и 15-second immunity
-
-Melee contact — любая из 8 соседних клеток вокруг enemy. Войти в melee можно при proximity, но после retreat в movement герой получает `contactImmunityUntilTick = currentTick + 300`. Пока immunity active, contact не переводит его обратно в melee; он может занять соседнюю клетку и продолжать movement.
-
-### Retreat resolution
-
-При переходе `MELEE_COMBAT → MOVEMENT` engine:
-
-1. определяет окружающих врагов в melee contact;
-2. сортирует их по enemy id;
-3. каждому даёт одну бесплатную базовую атаку;
-4. применяет retreat group coefficient только к этим атакам, не к обычному combat;
-5. запрещает stun от retreat attack;
-6. допускает damage/status effects, если они разрешены attack template;
-7. создаёт `mode.changed` и соответствующие `hp.changed`/`status.applied`;
-8. включает 15-second contact immunity.
-
-Если герой окружён и все соседние клетки blocked/occupied врагами, `player.move` отклоняется, а hero получает или сохраняет `last_chance` status согласно ruleset.
-
+### Контакт и contact immunity
+Melee contact — любая из 8 соседних клеток вокруг enemy. Проверка контакта выполняется после перемещения героя, перемещения врага, активации сцены (если доступно) и перехода режима. После melee retreat герой получает `contactImmunityUntilTick = currentTick + 300`; immunity активно, пока `serverTick < contactImmunityUntilTick`. Контакт не переводит героя в melee во время immunity. При контакте после перехода ranged → movement immunity не предоставляется: немедленный переход в melee, без retreat resolution.
+### Retreat resolution (DR-C-003)
+Только при переходе `MELEE_COMBAT → MOVEMENT` engine определяет окружающих врагов в melee contact, сортирует их строго по `enemyId` ascending (без RNG) и разрешает по одной immediate basic attack каждому. Для attack number `i` в этом порядке (1-based) коэффициент равен `1 / i`; он применяется только к retreat attacks. Формула: `mitigation = 100 / (100 + heroDefense)`, `mitigatedDamage = ceil(rawDamage * mitigation)`, `finalDamage = ceil(mitigatedDamage * coefficient)`; HP floors at 0. Нет crit, miss, status или stun. Продолжить все eligible атаки, даже если HP достигло 0; установить `critically_injured`. Emit `hp.changed` только если HP реально изменилось. Установить immunity в `currentTick + 300` до `mode.changed(reason: retreat)`. Accepted retreat command формирует одну event group и увеличивает `sceneRevision` ровно один раз; атаки и их HP events идут по `enemyId` ascending. Same-tick enemy intents продолжаются обычно с обычными preconditions; их не отменять и не перезапускать.
 ---
-
 ## 9. Movement и collision
 
 ### `player.move`
@@ -775,7 +760,7 @@ return S
 
 `stateHash` строится из canonical JSON с отсортированными entity IDs, card containers, statuses и intents. Нельзя использовать JSON.stringify для Map без canonicalization.
 
-Replay не вызывает random functions. Все random outcomes уже содержатся в event payload или восстанавливаются через recorded seed и versioned RNG algorithm.
+Replay не вызывает random functions. Все random outcomes уже содержатся в event payload или восстанавливаются через recorded seed и versioned RNG algorithm. Retreat replay восстанавливает mode, HP, contact immunity, event group and hash из событий либо детерминированного tick. `hero.canEnterRangedMode` — authoritative state; если равно `true`, участвует в runtime state, snapshot, state hash и replay.
 
 ---
 
@@ -864,8 +849,8 @@ Pure formulas (`damage.ts`, `targeting.ts`, `pathing.ts`) должны имет�
 3. Player and enemy due in same window resolve players first.
 4. Stale revision leaves gameplay state, `sceneRevision` and journal unchanged; `serverTick`/window bookkeeping may still advance.
 5. Duplicate request creates no additional gameplay mutation or event and returns the idempotent duplicate result.
-6. Retreat causes one free attack per surrounding enemy and grants immunity.
-7. Contact starts melee; ranged mode requires available ranged card.
+6. DR-C-003 retreat resolves one ordered free attack per eligible surrounding enemy and grants immunity; no duplicate `hp.changed` on unchanged HP.
+7. Contact starts melee; ranged mode requires authoritative `hero.canEnterRangedMode === true`.
 8. Melee magic halves damage but preserves status potency.
 9. Impossible ranged intent cancels and starts a valid fallback.
 10. Stamina regens exactly at 300 ticks and not during pause.

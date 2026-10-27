@@ -71,7 +71,7 @@ export function cloneEvent(event: DomainEvent): DomainEvent {
 function cloneInputWindow(inputWindow: InputWindowRuntime): InputWindowRuntime {
   return {
     windowId: inputWindow.windowId,
-    commands: inputWindow.commands.map((command) => ({ ...command, payload: { ...command.payload } })),
+    commands: inputWindow.commands.map((command) => structuredClone(command)),
   };
 }
 

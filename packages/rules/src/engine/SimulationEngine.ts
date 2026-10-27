@@ -8,6 +8,8 @@ import { validateMove } from "../movement/playerMove.js";
 import { cellIndex } from "../grid/Grid.js";
 import { activateScene, resolveDueIntents } from "../intents/intentSystem.js";
 import { groupEvents, type PendingJournalEvent } from "../intents/events.js";
+import { detectContactTransitions, modeChangedEvent } from "../combat/heroModes.js";
+import { resolveRetreat } from "../combat/retreatResolution.js";
 import { assertRuntimeInvariants } from "./invariants.js";
 import { cloneRuntimeState, createRuntimeState, snapshotState } from "./createRuntimeState.js";
 import type {
@@ -15,6 +17,8 @@ import type {
   EngineErrorCode,
   FinalCommandResult,
   InternalCommand,
+  InternalModeCommand,
+  InternalPlayerMoveCommand,
   JournalRecord,
   RuntimeSnapshot,
   RuntimeState,
@@ -39,9 +43,10 @@ export type SimulationEngineOptions = {
   onPhase?: (phase: SchedulerPhase, tick: number) => void;
 };
 
-type AppliedMove = {
+type AppliedCommand = {
   result: FinalCommandResult;
-  pendingEvent?: PendingJournalEvent;
+  pendingEvents: PendingJournalEvent[];
+  destinationCell?: number;
 };
 
 export class HeadlessSimulationEngine implements SimulationEngine {
@@ -59,6 +64,7 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     this.options = options;
 
     const initialPending = activateScene(this.runtime);
+    initialPending.push(...detectContactTransitions(this.runtime, this.runtime.serverTick));
     const initialBatch = groupEvents(this.runtime, initialPending);
     this.journal.appendBatch(initialBatch.events, initialBatch.auditByEventId);
     this.journal.appendTick(this.runtime.serverTick, this.runtime.sceneRevision, this.runtime.scene.inputWindow);
@@ -85,7 +91,8 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     const hero = heroId ? this.runtime.entities.get(heroId) : undefined;
     if (!hero || hero.kind !== "hero" || hero.aliveState !== "active") return rejected("AUTH_FORBIDDEN");
     if (command.clientRevision !== this.runtime.sceneRevision) return rejected("STALE_SCENE_REVISION");
-    if (hero.mode !== "movement") return rejected("INVALID_MODE");
+    if (command.command === "player.move" && hero.mode !== "movement") return rejected("INVALID_MODE");
+    if (command.command === "player.enter_ranged_mode" && !hero.canEnterRangedMode) return rejected("CARD_NOT_AVAILABLE");
 
     const windowId = windowIdAtTick(this.runtime.serverTick);
     if (this.runtime.scene.inputWindow.windowId !== windowId) {
@@ -115,16 +122,19 @@ export class HeadlessSimulationEngine implements SimulationEngine {
       this.options.onPhase?.(phase, this.runtime.serverTick);
       if (phase === "players" && closedWindowId !== null) {
         for (const command of orderedCommands) {
-          const applied = this.applyMove(command, reservations);
+          const applied = command.command === "player.move"
+            ? this.applyMove(command, reservations)
+            : this.applyModeCommand(command);
           commandResults.push(applied.result);
-          if (!applied.pendingEvent) continue;
-          pending.push(applied.pendingEvent);
-          if (applied.pendingEvent.event.eventType === "scene.entity_moved") {
-            reservations.add(cellIndex(applied.pendingEvent.event.payload.to));
-          }
+          pending.push(...applied.pendingEvents);
+          if (applied.destinationCell !== undefined) reservations.add(applied.destinationCell);
         }
       } else if (phase === "enemies") {
-        pending.push(...resolveDueIntents(this.runtime, this.runtime.serverTick));
+        const enemyEvents = resolveDueIntents(this.runtime, this.runtime.serverTick);
+        pending.push(...enemyEvents);
+        if (enemyEvents.some(({ event }) => event.eventType === "scene.entity_moved")) {
+          pending.push(...detectContactTransitions(this.runtime, this.runtime.serverTick));
+        }
       }
       // Environment has no active effects in this increment; its phase remains explicit and ordered.
     }
@@ -135,10 +145,10 @@ export class HeadlessSimulationEngine implements SimulationEngine {
 
     for (const result of commandResults) {
       if (result.status !== "accepted") continue;
-      const requestEvent = committed.events.find((event) => event.causedByRequestId === result.requestId);
-      if (requestEvent) {
-        result.eventIds = [requestEvent.eventId];
-        result.sceneRevision = requestEvent.sceneRevision;
+      const requestEvents = committed.events.filter((event) => event.causedByRequestId === result.requestId);
+      if (requestEvents.length > 0) {
+        result.eventIds = requestEvents.map((event) => event.eventId);
+        result.sceneRevision = requestEvents[0]?.sceneRevision ?? this.runtime.sceneRevision;
       }
     }
 
@@ -180,11 +190,12 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     return replayJournalRecords(this.initialState, this.journal.records());
   }
 
-  private applyMove(command: InternalCommand, reservations: ReadonlySet<number>): AppliedMove {
+  private applyMove(command: InternalPlayerMoveCommand, reservations: ReadonlySet<number>): AppliedCommand {
     const heroId = this.runtime.heroIdByActorId.get(command.actorId);
     const hero = heroId ? this.runtime.entities.get(heroId) : undefined;
-    const reject = (code: EngineErrorCode): AppliedMove => ({
+    const reject = (code: EngineErrorCode): AppliedCommand => ({
       result: { requestId: command.requestId, status: "rejected", code, sceneRevision: this.runtime.sceneRevision },
+      pendingEvents: [],
     });
     if (!hero || hero.kind !== "hero" || hero.aliveState !== "active") return reject("AUTH_FORBIDDEN");
     if (command.clientRevision !== this.runtime.sceneRevision) return reject("STALE_SCENE_REVISION");
@@ -200,24 +211,67 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     fromCell.occupantId = null;
     toCell.occupantId = hero.id;
     hero.position = { ...validated.destination };
+    const pendingEvents: PendingJournalEvent[] = [{
+      event: {
+        protocolVersion: "fable.protocol.v1",
+        schemaVersion: 1,
+        eventType: "scene.entity_moved",
+        eventVersion: 1,
+        campaignId: this.runtime.campaignId,
+        sessionId: this.runtime.sessionId,
+        sceneId: this.runtime.scene.id,
+        serverTick: this.runtime.serverTick,
+        causedByRequestId: command.requestId,
+        actorId: command.actorId,
+        replay: null,
+        payload: { entityId: hero.id, from, to: { ...validated.destination } },
+      },
+    }];
+    pendingEvents.push(...detectContactTransitions(this.runtime, this.runtime.serverTick, {
+      requestId: command.requestId,
+      actorId: command.actorId,
+    }));
     return {
       result: { requestId: command.requestId, status: "accepted", eventIds: [], sceneRevision: this.runtime.sceneRevision + 1 },
-      pendingEvent: {
-        event: {
-          protocolVersion: "fable.protocol.v1",
-          schemaVersion: 1,
-          eventType: "scene.entity_moved",
-          eventVersion: 1,
-          campaignId: this.runtime.campaignId,
-          sessionId: this.runtime.sessionId,
-          sceneId: this.runtime.scene.id,
-          serverTick: this.runtime.serverTick,
-          causedByRequestId: command.requestId,
-          actorId: command.actorId,
-          replay: null,
-          payload: { entityId: hero.id, from, to: { ...validated.destination } },
-        },
-      },
+      pendingEvents,
+      destinationCell: cellIndex(validated.destination),
+    };
+  }
+
+  private applyModeCommand(command: InternalModeCommand): AppliedCommand {
+    const heroId = this.runtime.heroIdByActorId.get(command.actorId);
+    const hero = heroId ? this.runtime.entities.get(heroId) : undefined;
+    const reject = (code: EngineErrorCode): AppliedCommand => ({
+      result: { requestId: command.requestId, status: "rejected", code, sceneRevision: this.runtime.sceneRevision },
+      pendingEvents: [],
+    });
+    if (!hero || hero.kind !== "hero" || hero.aliveState !== "active") return reject("AUTH_FORBIDDEN");
+    if (command.clientRevision !== this.runtime.sceneRevision) return reject("STALE_SCENE_REVISION");
+
+    const cause = { requestId: command.requestId, actorId: command.actorId };
+    const pendingEvents: PendingJournalEvent[] = [];
+    if (command.command === "player.enter_movement_mode") {
+      if (hero.mode === "movement") return reject("INVALID_MODE");
+      if (hero.mode === "melee") {
+        pendingEvents.push(...resolveRetreat(this.runtime, hero, this.runtime.serverTick, command.requestId, command.actorId).events);
+        pendingEvents.push(...detectContactTransitions(this.runtime, this.runtime.serverTick, cause));
+      } else {
+        const previousMode = hero.mode;
+        hero.mode = "movement";
+        pendingEvents.push(modeChangedEvent(this.runtime, hero, previousMode, hero.mode, "command", this.runtime.serverTick, cause));
+        pendingEvents.push(...detectContactTransitions(this.runtime, this.runtime.serverTick, cause));
+      }
+    } else {
+      if (hero.mode !== null && hero.mode !== "movement") return reject("INVALID_MODE");
+      if (!hero.canEnterRangedMode) return reject("CARD_NOT_AVAILABLE");
+      const previousMode = hero.mode;
+      hero.mode = "ranged";
+      pendingEvents.push(modeChangedEvent(this.runtime, hero, previousMode, hero.mode, "command", this.runtime.serverTick, cause));
+      pendingEvents.push(...detectContactTransitions(this.runtime, this.runtime.serverTick, cause));
+    }
+    return {
+      result: { requestId: command.requestId, status: "accepted", eventIds: [], sceneRevision: this.runtime.sceneRevision + 1 },
+      pendingEvents,
     };
   }
 
@@ -225,13 +279,17 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     if (!command || typeof command !== "object") return false;
     if (typeof command.requestId !== "string" || command.requestId.length === 0 ||
       typeof command.sessionId !== "string" || typeof command.actorId !== "string") return false;
-    if (command.command !== "player.move" || command.role !== "player" ||
-      !["up", "down", "left", "right"].includes(command.payload?.direction)) return false;
+    if (command.role !== "player") return false;
+    if (command.command === "player.move") {
+      if (!command.payload || !["up", "down", "left", "right"].includes(command.payload.direction)) return false;
+      if (Object.keys(command.payload).sort().join(",") !== "direction") return false;
+    } else if (command.command === "player.enter_movement_mode" || command.command === "player.enter_ranged_mode") {
+      if (!command.payload || typeof command.payload !== "object" || Object.keys(command.payload).length !== 0) return false;
+    } else return false;
     if (!Number.isInteger(command.clientRevision) || command.clientRevision < 0 ||
       !Number.isInteger(command.serverReceiveSequence) || command.serverReceiveSequence < 0) return false;
     const keys = Object.keys(command as unknown as Record<string, unknown>).sort();
-    return keys.join(",") === ["actorId", "clientRevision", "command", "payload", "requestId", "role", "serverReceiveSequence", "sessionId"].sort().join(",") &&
-      Object.keys(command.payload).sort().join(",") === "direction";
+    return keys.join(",") === ["actorId", "clientRevision", "command", "payload", "requestId", "role", "serverReceiveSequence", "sessionId"].sort().join(",");
   }
 }
 
@@ -240,5 +298,5 @@ export function createSimulationEngine(config: SimulationEngineConfig, options?:
 }
 
 function cloneCommand(command: InternalCommand): InternalCommand {
-  return { ...command, payload: { ...command.payload } };
+  return structuredClone(command);
 }

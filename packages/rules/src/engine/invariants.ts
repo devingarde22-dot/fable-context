@@ -34,6 +34,12 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
     if (!Number.isFinite(entity.defense) || entity.defense < 0 || !Number.isFinite(entity.threat)) {
       throw new Error(`Entity ${entity.id} has invalid combat values`);
     }
+    if (entity.kind === "hero") {
+      if (typeof entity.canEnterRangedMode !== "boolean") throw new Error(`Hero ${entity.id} has invalid ranged-mode capability`);
+      if (entity.hp.current === 0 && entity.aliveState !== "critically_injured") {
+        throw new Error(`Hero ${entity.id} with 0 HP must be critically injured`);
+      }
+    }
     const cell = state.scene.cells[cellIndex(entity.position)];
     if (entity.aliveState !== "removed" && cell?.occupantId !== entity.id) {
       throw new Error(`Non-removed entity ${entity.id} is not recorded as occupant`);
@@ -47,6 +53,12 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
     if (entity.kind === "enemy" && entity.activeIntentId !== null) {
       const intent = state.activeIntents.get(entity.activeIntentId);
       if (!intent || intent.ownerEntityId !== entity.id) throw new Error(`Enemy ${entity.id} has an invalid active intent reference`);
+    }
+  }
+  for (const [heroId, untilTick] of state.scene.contactImmunityUntilTick) {
+    const hero = state.entities.get(heroId);
+    if (!hero || hero.kind !== "hero" || !Number.isInteger(untilTick) || untilTick < 0) {
+      throw new Error(`Invalid contact immunity entry for ${heroId}`);
     }
   }
   for (const intent of state.activeIntents.values()) {

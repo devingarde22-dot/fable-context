@@ -101,6 +101,7 @@ export const testEnemyTemplates: readonly EnemyTemplate[] = [
     status: "confirmed",
     hp: 900,
     defense: 20,
+    basicAttack: { handler: "melee_strike", rawDamage: 140 },
     role: "close_combat",
     intentKeys: ["move_close", "melee_strike", "hold_position"],
     initialIntentKey: "move_close",
@@ -112,13 +113,14 @@ export const testEnemyTemplates: readonly EnemyTemplate[] = [
     status: "confirmed",
     hp: 350,
     defense: 12,
+    basicAttack: { handler: "melee_strike", rawDamage: 100 },
     role: "ranged_attack",
     intentKeys: ["ranged_shot", "hold_position"],
     initialIntentKey: "ranged_shot",
   },
 ];
 
-export function hero(id: string, x: number, y: number, mode: "movement" | null = "movement"): EntityRuntime {
+export function hero(id: string, x: number, y: number, mode: "movement" | "melee" | "ranged" | null = "movement", canEnterRangedMode = false): EntityRuntime {
   return {
     id,
     kind: "hero",
@@ -130,6 +132,7 @@ export function hero(id: string, x: number, y: number, mode: "movement" | null =
     threat: 0,
     statuses: [],
     mode,
+    canEnterRangedMode,
     activeIntentId: null,
   };
 }
@@ -185,6 +188,23 @@ export function moveCommand(
   };
 }
 
+export function modeCommand(
+  command: "player.enter_movement_mode" | "player.enter_ranged_mode",
+  requestId: string,
+  options: { actorId?: string; revision?: number; sequence?: number; sessionId?: string } = {},
+) {
+  return {
+    requestId,
+    sessionId: options.sessionId ?? "session-test",
+    actorId: options.actorId ?? "actor-1",
+    role: "player" as const,
+    command,
+    payload: {},
+    clientRevision: options.revision ?? 0,
+    serverReceiveSequence: options.sequence ?? 1,
+  } as const;
+}
+
 /** Gameplay projection excludes authoritative clock and window-inbox bookkeeping. */
 export function gameplayState(snapshot: RuntimeSnapshot) {
   return {
@@ -197,6 +217,7 @@ export function gameplayState(snapshot: RuntimeSnapshot) {
       cells: snapshot.scene.cells,
       playerEntityIds: snapshot.scene.playerEntityIds,
       enemyEntityIds: snapshot.scene.enemyEntityIds,
+      contactImmunityUntilTick: [...snapshot.scene.contactImmunityUntilTick].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0),
       startedAtTick: snapshot.scene.startedAtTick,
     },
     entities: snapshot.entities,

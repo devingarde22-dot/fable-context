@@ -8,7 +8,7 @@ const schema = JSON.parse(readFileSync(new URL("../../contracts/event.schema.jso
 const validateEvent = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
 
 describe("canonical event contract", () => {
-  it("validates emitted start, target selection, resolution, movement, damage, and fallback events", () => {
+  it("validates emitted start, target selection, resolution, movement, damage, fallback, and mode events", () => {
     const moveEngine = createSimulationEngine(testConfig({
       entities: [hero("hero-move", 1, 1), enemy("enemy-move", 7, 1)],
       heroIdByActorId: { "actor-move": "hero-move" },
@@ -39,6 +39,7 @@ describe("canonical event contract", () => {
     expect(emitted.some((event) => event.eventType === "scene.entity_moved")).toBe(true);
     expect(emitted.some((event) => event.eventType === "hp.changed")).toBe(true);
     expect(emitted.some((event) => event.eventType === "intent.cancelled")).toBe(true);
+    expect(emitted.some((event) => event.eventType === "mode.changed")).toBe(true);
     for (const event of emitted) {
       expect(validateEvent(event), JSON.stringify(validateEvent.errors)).toBe(true);
     }

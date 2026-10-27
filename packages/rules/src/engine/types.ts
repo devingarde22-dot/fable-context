@@ -13,6 +13,8 @@ export type RuntimeEntityKind = "hero" | "enemy";
 export type RuntimeFaction = "party" | "enemy" | "neutral";
 export type AliveState = "active" | "unconscious" | "critically_injured" | "removed";
 export type ResourceValue = { current: number; max: number };
+export type HeroMode = "movement" | "melee" | "ranged";
+export type ModeChangedValue = "out_of_combat" | HeroMode;
 
 export type TargetPolicy =
   | "none"
@@ -65,6 +67,7 @@ export type EnemyTemplate = {
   status: "draft" | "confirmed" | "deprecated";
   hp: number;
   defense: number;
+  basicAttack: { handler: "melee_strike"; rawDamage: number };
   role: string;
   intentKeys: readonly string[];
   initialIntentKey?: string;
@@ -92,7 +95,8 @@ type RuntimeEntityBase = {
 export type HeroRuntime = RuntimeEntityBase & {
   kind: "hero";
   faction: "party";
-  mode: "movement" | null;
+  mode: HeroMode | null;
+  canEnterRangedMode: boolean;
   activeIntentId: null;
   templateKey?: string;
 };
@@ -158,7 +162,17 @@ export type InternalPlayerMoveCommand = {
   clientRevision: number;
   serverReceiveSequence: number;
 };
-export type InternalCommand = InternalPlayerMoveCommand;
+export type InternalModeCommand = {
+  requestId: string;
+  sessionId: string;
+  actorId: string;
+  role: "player";
+  command: "player.enter_movement_mode" | "player.enter_ranged_mode";
+  payload: Record<string, never>;
+  clientRevision: number;
+  serverReceiveSequence: number;
+};
+export type InternalCommand = InternalPlayerMoveCommand | InternalModeCommand;
 
 export type InputWindowRuntime = { windowId: number; commands: InternalCommand[] };
 export type SceneRuntime = {
@@ -170,6 +184,7 @@ export type SceneRuntime = {
   enemyEntityIds: EntityId[];
   inputWindow: InputWindowRuntime;
   startedAtTick: number;
+  contactImmunityUntilTick: Map<EntityId, number>;
 };
 
 export type RuntimeState = {
@@ -211,6 +226,10 @@ type EventBase = {
 
 export type DomainEvent =
   | (EventBase & { eventType: "scene.entity_moved"; payload: { entityId: EntityId; from: Cell; to: Cell } })
+  | (EventBase & {
+      eventType: "mode.changed";
+      payload: { heroId: EntityId; from: ModeChangedValue; to: ModeChangedValue; reason: "command" | "contact" | "retreat" | "scene_end" | "rollback" };
+    })
   | (EventBase & {
       eventType: "intent.started";
       payload: {
@@ -275,6 +294,7 @@ export type EngineErrorCode =
   | "DUPLICATE_REQUEST"
   | "STATE_LOCKED"
   | "INVALID_MODE"
+  | "CARD_NOT_AVAILABLE"
   | "CELL_OUT_OF_BOUNDS"
   | "CELL_BLOCKED"
   | "CELL_OCCUPIED"

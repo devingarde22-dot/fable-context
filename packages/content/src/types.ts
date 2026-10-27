@@ -54,6 +54,7 @@ export type EnemyTemplate = {
   status: "draft" | "confirmed" | "deprecated";
   hp: number;
   defense: number;
+  basicAttack: { handler: "melee_strike"; rawDamage: number };
   role: string;
   intentKeys: readonly string[];
   initialIntentKey?: string;

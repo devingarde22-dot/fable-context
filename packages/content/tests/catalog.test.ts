@@ -6,8 +6,12 @@ import { ACTIVE_RUNTIME_ENEMY_TEMPLATE_KEYS, ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY
 const intentSchema = JSON.parse(
   readFileSync(new URL("../../contracts/intent.schema.json", import.meta.url), "utf8"),
 ) as object;
+const enemySchema = JSON.parse(
+  readFileSync(new URL("../../contracts/enemy.schema.json", import.meta.url), "utf8"),
+) as object;
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validateIntent = ajv.compile(intentSchema);
+const validateEnemy = ajv.compile(enemySchema);
 
 describe("validated content catalog", () => {
   it("validates all catalog intent templates against the canonical JSON Schema", () => {
@@ -23,6 +27,20 @@ describe("validated content catalog", () => {
     if (!source) throw new Error("move_close content template missing");
     expect(validateIntent({ ...source, durationMs: 2_950 })).toBe(false);
     expect(validateIntent({ ...source, durationMs: 3_025 })).toBe(false);
+  });
+
+  it("validates enemy templates and explicit retreat basic attacks against the canonical schema", () => {
+    for (const template of ENEMY_TEMPLATES) {
+      expect(validateEnemy(template), JSON.stringify(validateEnemy.errors)).toBe(true);
+    }
+    expect(ENEMY_TEMPLATES.map(({ key, basicAttack }) => [key, basicAttack])).toEqual([
+      ["quarantine_chaser", { handler: "melee_strike", rawDamage: 140 }],
+      ["slag_shooter", { handler: "melee_strike", rawDamage: 100 }],
+      ["extinguisher", { handler: "melee_strike", rawDamage: 100 }],
+    ]);
+    const template = ENEMY_TEMPLATES[0];
+    if (!template) throw new Error("quarantine_chaser content template missing");
+    expect(validateEnemy({ ...template, basicAttack: { handler: "ranged_shot", rawDamage: 140 } })).toBe(false);
   });
 
   it("registers all three enemies while keeping extinguisher out of the active runtime fixture", () => {

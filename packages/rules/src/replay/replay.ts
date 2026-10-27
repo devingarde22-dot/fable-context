@@ -4,6 +4,7 @@ import { cellIndex, isInBounds } from "../grid/Grid.js";
 import { checkMovementDestination } from "../grid/collision.js";
 import type { DomainEvent, JournalRecord, RuntimeSnapshot, RuntimeState, RngAuditRecord } from "../engine/types.js";
 import { cloneEvent } from "../journal/EventJournal.js";
+import { modeFromEvent } from "../combat/heroModes.js";
 
 export function replayEvents(initialState: RuntimeState, events: readonly DomainEvent[]): RuntimeSnapshot {
   const state = cloneRuntimeState(initialState);
@@ -104,6 +105,9 @@ function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: Rep
       break;
     case "hp.changed":
       applyHpChanged(state, event);
+      break;
+    case "mode.changed":
+      applyModeChanged(state, event);
       break;
   }
 
@@ -221,6 +225,20 @@ function applyHpChanged(state: RuntimeState, event: Extract<DomainEvent, { event
   if (entity.kind === "hero" && entity.hp.current === 0) entity.aliveState = "critically_injured";
 }
 
+function applyModeChanged(state: RuntimeState, event: Extract<DomainEvent, { eventType: "mode.changed" }>): void {
+  const hero = state.entities.get(event.payload.heroId);
+  if (!hero || hero.kind !== "hero") throw new Error("Replay mode.changed references a missing hero");
+  const currentMode = hero.mode ?? "out_of_combat";
+  if (currentMode !== event.payload.from) throw new Error("Replay mode.changed from-value does not match current hero mode");
+  if (event.payload.reason === "retreat") {
+    if (event.payload.from !== "melee" || event.payload.to !== "movement") {
+      throw new Error("Replay retreat mode.changed has an invalid transition");
+    }
+    state.scene.contactImmunityUntilTick.set(hero.id, event.serverTick + 300);
+  }
+  hero.mode = modeFromEvent(event.payload.to);
+}
+
 function validateRngAudit(event: DomainEvent, auditRecords: readonly RngAuditRecord[]): void {
   if (auditRecords.length > 1) throw new Error("Replay has duplicate RNG audit records for one event");
   for (const record of auditRecords) {
@@ -259,6 +277,6 @@ function isUint32(value: number): boolean {
 function cloneInputWindow(inputWindow: RuntimeState["scene"]["inputWindow"]): RuntimeState["scene"]["inputWindow"] {
   return {
     windowId: inputWindow.windowId,
-    commands: inputWindow.commands.map((command) => ({ ...command, payload: { ...command.payload } })),
+    commands: inputWindow.commands.map((command) => structuredClone(command)),
   };
 }

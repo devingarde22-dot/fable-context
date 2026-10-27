@@ -54,11 +54,11 @@ First apply the template's faction, alive-state, status, range, and LoS filters.
 
 ## Deterministic RNG
 
-- Algorithm: xoshiro128** (`xoshiro128ss`), version `fable.rng.v1`.
+- Canonical algorithm name: `xoshiro128**`; `xoshiro128ss` is only an internal implementation shorthand. `algorithmVersion`: `fable.rng.v1`.
 - Encoding: UTF-8.
 - Fork input fields, in order: `rootSeed`, `campaignId`, `sceneId`, `serverTick`, `activeIntentId`, and a purpose string.
 - Canonical fork serialization: compact JSON array of those six fields, encoded as UTF-8; `seedRef` is the lowercase hexadecimal SHA-256 digest.
-- Separate purposes: `target_selection`, `fallback_selection`, `deck_shuffle`, `retreat_attack_order`.
+- Active purposes for this increment: `target_selection`, `fallback_selection`, `deck_shuffle`. `retreat_attack_order` is deferred future scope; retreat ordering in DR-C-003 is deterministic `enemyId` ascending and uses no RNG.
 - The in-memory journal retains per-event RNG audit sidecars with algorithm version, fork input, seed reference, and before/after xoshiro state. RNG state/audit data is not exposed to player/TV projections.
 - `fallbackKeys` are an explicitly ordered list, so fallback processing tries candidates in that order; it does not randomly reorder them. The separate `fallback_selection` fork identifies and audits that decision stream.
 

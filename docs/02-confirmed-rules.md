@@ -150,7 +150,7 @@ criticalDamage = ceil(finalDamage * 1.5)
 
 ### COMBAT-006 — Отступление
 
-Групповой коэффициент применяется только к бесплатным атакам после выхода из ближнего боя: первый враг 100%, второй 50%, последующие — по формуле diminishing returns. В обычном бою коэффициент не используется.
+Групповой коэффициент применяется только к бесплатным атакам после выхода из ближнего боя: для 1-based attack order `i` коэффициент равен `1/i` (первый — 100%, второй — 50%, третий — 33⅓% и далее). Враги сортируются по `enemyId` ascending. Коэффициент не используется в обычном бою; полная формула и округление зафиксированы в [DR-C-003](./16-step-c-retreat-resolution.md).
 
 ## 6. HP, стамина и статусы
 
@@ -260,3 +260,6 @@ Scaling по tiers:
 | 4 | ×2.1 | ×1.65 | фазы и новые механики |
 
 Scaling не зависит линейно от размера партии. Для 2–3 игроков выбирается encounter preset.
+
+## Step C Increment 3 — retreat attacks (DR-C-003)
+Accepted retreat commands resolve eligible melee retreat attacks in ascending `enemyId` order, with coefficient `1/attackOrder` (1-based). Coefficient applies only to retreat attacks. Damage is `mitigation = 100/(100+heroDefense)`, `mitigatedDamage = ceil(rawDamage*mitigation)`, `finalDamage = ceil(mitigatedDamage*coefficient)`; HP floors at 0. No crit, miss, status, or stun. All eligible attacks resolve even if hero HP reaches 0; the hero becomes `critically_injured`. Emit `hp.changed` only when HP changes. See [DR-C-003](./16-step-c-retreat-resolution.md) for authoritative event and contact details.

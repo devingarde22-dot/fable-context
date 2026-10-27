@@ -14,6 +14,7 @@ export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
       playerEntityIds: [...snapshot.scene.playerEntityIds].sort(compareText),
       enemyEntityIds: [...snapshot.scene.enemyEntityIds].sort(compareText),
       startedAtTick: snapshot.scene.startedAtTick,
+      contactImmunityUntilTick: [...snapshot.scene.contactImmunityUntilTick].sort(([a], [b]) => compareText(a, b)),
       inputWindow: {
         windowId: snapshot.scene.inputWindow.windowId,
         commands: [...snapshot.scene.inputWindow.commands]
