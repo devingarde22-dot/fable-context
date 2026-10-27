@@ -1,5 +1,5 @@
 import { createSimulationEngine } from "../src/engine/SimulationEngine.js";
-import type { EntityRuntime, SimulationEngineConfig } from "../src/engine/types.js";
+import type { EntityRuntime, RuntimeSnapshot, SimulationEngineConfig } from "../src/engine/types.js";
 
 export function hero(id: string, x: number, y: number, mode: "movement" | null = "movement"): EntityRuntime {
   return { id, kind: "hero", faction: "party", position: { x, y }, aliveState: "active", mode };
@@ -35,6 +35,30 @@ export function moveCommand(
     payload: { direction },
     clientRevision: options.revision ?? 0,
     serverReceiveSequence: options.sequence ?? 1,
+  };
+}
+
+/** Gameplay projection excludes authoritative clock and window-inbox bookkeeping. */
+export function gameplayState(snapshot: RuntimeSnapshot) {
+  return {
+    campaignId: snapshot.campaignId,
+    sessionId: snapshot.sessionId,
+    scene: {
+      id: snapshot.scene.id,
+      width: snapshot.scene.width,
+      height: snapshot.scene.height,
+      cells: snapshot.scene.cells,
+      playerEntityIds: snapshot.scene.playerEntityIds,
+      enemyEntityIds: snapshot.scene.enemyEntityIds,
+      startedAtTick: snapshot.scene.startedAtTick,
+    },
+    entities: snapshot.entities,
+    heroIdByActorId: snapshot.heroIdByActorId,
+    sceneRevision: snapshot.sceneRevision,
+    rootSeed: snapshot.rootSeed,
+    phase: snapshot.phase,
+    paused: snapshot.paused,
+    outcome: snapshot.outcome,
   };
 }
 

@@ -92,7 +92,7 @@ type EventProjection<T> = {
 
 `seed`, exact damage formula, exact target, fallback reason, audit reason, checkpoint id и private hint text не должны автоматически попадать в Player/TV projection. Нельзя отправлять полный event и рассчитывать на сокрытие полей в UI: это прямо противоречит VIS-правилам.
 
-`command.accepted` и `command.rejected` остаются transport responses, а не domain events: rejection не меняет state и не попадает в append-only event journal как подтверждённое изменение. Если нужен audit отказа, это отдельная audit запись GM/QA, не публичный event.
+`command.accepted` и `command.rejected` остаются transport responses, а не domain events: rejection не вызывает gameplay-state mutation и не попадает в append-only event journal как подтверждённое изменение. Authoritative `serverTick`/scheduler bookkeeping могут продолжаться независимо. Если нужен audit отказа, это отдельная audit запись GM/QA, не публичный event.
 
 ### 3.3 Event type registry для первого vertical slice
 
@@ -240,12 +240,12 @@ System contract говорит о filtered snapshot, visibility matrix запр�
 
 ### C-10 — current scaffold не соответствует confirmed 9×9 slice и envelope lifecycle
 
-`CampaignRoom.ts` использует 18×12, north/south/east/west, broadcast без revision/sequence/request id и mutation до journal/commit. Это не новый event rule, но текущая реализация не может доказать TIME-001/004/005 и vertical acceptance. **Решение:** event adapter/simulation layer должен стать источником broadcast; direction and grid must be normalized to confirmed command contract (`up/down/left/right`, 9×9 for slice) в отдельном implementation task.
+`CampaignRoom.ts` остаётся legacy demo: он использует 18×12, north/south/east/west, broadcast без revision/sequence/request id и mutation до journal/commit, поэтому не является authoritative implementation и не доказывает TIME-001/004/005. Step C headless Core Engine в `packages/rules` уже использует confirmed command contract (`up/down/left/right`, 9×9); будущий room adapter должен делегировать ему gameplay mutation/journal и доставлять только committed events.
 
 ## 6. Open questions
 
 1. **OPEN_QUESTION:** какой точный RNG algorithm/state format используется для fixed-seed replay? Нужен ADR и golden replay test.
-2. **OPEN_QUESTION:** должна ли `sceneRevision` увеличиваться один раз на atomic input batch или на каждый emitted event? Рекомендация в этом отчёте — один раз на command/batch, `serverSequence/eventIndex` для event order.
+2. **RESOLVED (Step C, DR-C-001/C-003):** `sceneRevision` увеличивается один раз на accepted batch, если он содержит gameplay mutation; `serverSequence/eventIndex` задают event order. Rejected commands не изменяют gameplay state, revision или journal.
 3. **OPEN_QUESTION:** canonical event name для personal mode — `mode.changed` или `scene.mode_changed`; рекомендация — `mode.changed`.
 4. **OPEN_QUESTION:** являются ли spawn events частью gameplay domain или только текущим demo transport; определить новый Rule ID до их journal persistence.
 5. **OPEN_QUESTION:** что именно означает `gm.pause_scene`/`scene.time_paused` для timers, input windows, intent resolution, reconnect и replay? До решения не считать state-changing contract готовым.
@@ -302,10 +302,10 @@ System contract говорит о filtered snapshot, visibility matrix запр�
 4. `/home/ubuntu/lilovaya-gar/docs/08-api-specification.md` — нормализовать server event names, transport projection и spawn/pause status.
 5. `/home/ubuntu/lilovaya-gar/docs/09-database-schema.md` — campaign-scoped sequence, eventVersion/revision/tick/seed/group columns, indexes и append-only constraints.
 6. `/home/ubuntu/lilovaya-gar/dev/database/schema.ts` — Drizzle migration для полноценной campaignEvents таблицы и command/event idempotency; destructive migration не выполнять автоматически.
-7. `/home/ubuntu/lilovaya-gar/dev/server/CampaignRoom.ts` — отделить simulation/journal от broadcast, добавить revision/tick/sequence/group, commit boundary и filtered projections.
+7. `/home/ubuntu/lilovaya-gar/dev/server/CampaignRoom.ts` — оставить room transport adapter: читать committed state/events из `packages/rules`, выполнять broadcast/reconnect и filtered projections; не размещать там simulation/journal.
 8. `/home/ubuntu/lilovaya-gar/dev/client/room-client.ts` — принимать typed projections/sequence, не рассчитывать state, обрабатывать reconnect и safe rejection/event filtering.
 9. `packages/contracts/event-payloads/*.schema.json` или эквивалентный typed contract module — отдельные payload definitions для canonical event types (новая директория/файлы).
-10. `server/simulation/events/*`, `server/replay/*`, `tests/contracts/event.schema.test.ts`, `tests/simulation/event-ordering.test.ts`, `tests/replay/fixed-seed.test.ts`, `tests/visibility/event-projection.test.ts` — новые implementation/test files, пути требуют подтверждения структуры monorepo.
+10. `packages/rules/src/journal/`, `packages/rules/src/replay/`, `packages/rules/tests/` — Core Engine event/journal/replay implementation and tests per DR-C-001; contract and visibility tests remain in their owning packages.
 11. `docs/02-confirmed-rules.md` — только после ADR для unresolved naming/pause/spawn/RNG вопросов; этот review сам CONFIRMED rules не переписывает.
 
 ## 9. Implementation boundary

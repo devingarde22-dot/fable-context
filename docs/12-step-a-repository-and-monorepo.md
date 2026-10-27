@@ -1,8 +1,16 @@
 # Fable — Step A: Repository & Monorepo
 
 **Версия:** 0.1  
-**Статус:** CONFIRMED PLAN / NOT IMPLEMENTED  
+**Статус:** CONFIRMED PLAN / CORE WORKSPACE SCAFFOLD IMPLEMENTED
 **Связанные документы:** `00-product-constitution`, `03-system-contracts`, `05-vertical-slice`, `10-ai-developer-guide`, `11-programming-roadmap`
+
+## Decision Record DR-C-001 — Step C engine package boundary
+
+- **Decision:** Step C engine lives in `packages/rules`.
+- **Status:** CONFIRMED.
+- **Reason:** the agreed Step C scope places the first headless engine there and this keeps the first vertical slice less complex.
+- **Consequence:** for Step C, `packages/rules` contains pure rule functions, `SimulationEngine`, tick loop, scheduler, journal and replay. The engine remains headless and has no UI, WebSocket, database or room dependency.
+- **Future option:** `packages/simulation` may be introduced later if the split is needed after the vertical slice. It is not a current package boundary and must not be created by moving the Step C implementation without a new decision.
 
 ## 1. Цель Шага А
 
@@ -14,7 +22,7 @@
 - устанавливает зависимости одной командой;
 - запускает typecheck, lint и tests;
 - понимает, где лежат контракты, simulation, server, content и clients;
-- не может случайно импортировать базу данных в rules или UI-логику в simulation;
+- не может случайно импортировать базу данных или UI-логику в headless Core Engine из `packages/rules`;
 - получает одинаковую структуру контекста в любой AI-сессии.
 
 ## 2. Решение по инструментам
@@ -62,8 +70,7 @@ fable/
 │
 ├─ packages/
 │  ├─ contracts/                  # TypeScript types + JSON Schema
-│  ├─ rules/                      # чистые формулы и rule functions
-│  ├─ simulation/                 # deterministic state machine
+│  ├─ rules/                      # pure rules + Step C headless Core Engine (DR-C-001)
 │  ├─ content/                    # validated cards/enemies/nodes fixtures
 │  ├─ test-fixtures/              # seeds, scenes, golden snapshots
 │  └─ config/                     # shared safe config, no secrets
@@ -111,7 +118,7 @@ fable/
 
 ### `packages/rules`
 
-Чистые функции без состояния и IO:
+Содержит чистые rule functions без IO, а на этапе Step C также владеет headless Core Engine по DR-C-001:
 
 - `calculateDamage()`;
 - `calculateHeal()`;
@@ -119,25 +126,14 @@ fable/
 - `canEnterMode()`;
 - `isCellBlocked()`;
 - `selectIntentTarget()`;
-- `applyStatusLayer()`.
+- `applyStatusLayer()`;
+- `SimulationEngine`, tick loop, scheduler, journal и replay.
 
-Одинаковый input всегда даёт одинаковый output.
+Одинаковый input всегда даёт одинаковый output. Rule functions остаются pure; только `SimulationEngine` изменяет собственный authoritative runtime state. Пакет не зависит от UI, WebSocket, room adapters или базы данных.
 
-### `packages/simulation`
+### Будущая опция: `packages/simulation`
 
-Авторитетная headless-модель:
-
-- scene state;
-- entity state;
-- hero modes;
-- movement;
-- intent scheduler;
-- stamina timer;
-- status lifecycle;
-- event creation;
-- replay.
-
-**Запрещено:** UI, SQL, сеть, browser APIs и вызов AI.
+Этот пакет сейчас не создаётся и не является текущей границей реализации. После vertical slice его можно ввести отдельным Decision Record, если разделение Core Engine и pure rule functions снизит сложность, не дублируя и не перемещая текущую логику преждевременно.
 
 ### `packages/content`
 
@@ -158,7 +154,7 @@ Validated content fixtures:
 
 ### `server/`
 
-Адаптеры вокруг simulation:
+Транспортные и инфраструктурные адаптеры вокруг headless Core Engine из `packages/rules`:
 
 - auth;
 - command transport;
@@ -167,7 +163,7 @@ Validated content fixtures:
 - projection filtering;
 - reconnect.
 
-Server не дублирует формулы из `rules` и не реализует вторую боевую модель.
+Server не дублирует формулы или state machine из `packages/rules` и не реализует вторую боевую модель.
 
 ### `apps/*`
 
@@ -183,15 +179,13 @@ Server не дублирует формулы из `rules` и не реализ�
 Разрешённое направление:
 
 ```text
-contracts
-   ↓
-rules ← content
-   ↓      ↓
-simulation ← test-fixtures
-   ↓
-server ─────────→ persistence
-   ↓
-apps/tv, apps/player, apps/gm
+       contracts
+       ↙      ↘
+    rules     content
+      ↘        ↙
+       server ─────→ persistence
+         ↓
+ apps/tv, apps/player, apps/gm
 ```
 
 Более формально:
@@ -199,11 +193,10 @@ apps/tv, apps/player, apps/gm
 | Пакет | Может импортировать | Не может импортировать |
 |---|---|---|
 | contracts | только стандартную библиотеку | server, DB, UI |
-| rules | contracts | UI, server, DB |
+| rules (including Step C Core Engine) | contracts | UI, server, DB, WebSocket, browser APIs |
 | content | contracts | server, UI |
-| simulation | contracts, rules, content types | DB, WebSocket, React, AI |
-| server | contracts, rules, simulation, content | напрямую чужой UI state |
-| apps | contracts, client SDK | simulation internals, DB, GM-only server state |
+| server | contracts, rules, content | directly owned UI state; a second copy of engine logic |
+| apps | contracts, client SDK | Core Engine internals, DB, GM-only server state |
 | tests | любой production package | secrets и production database |
 
 Циклические зависимости запрещены.
@@ -225,7 +218,7 @@ Root package должен содержать только workspace scripts и �
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "test:simulation": "pnpm --filter @fable/simulation test",
+    "test:rules": "pnpm --filter @fable/rules test",
     "test:contracts": "pnpm --filter @fable/contracts test",
     "validate:content": "pnpm --filter @fable/content validate",
     "check": "pnpm typecheck && pnpm lint && pnpm test"
@@ -296,14 +289,13 @@ tsconfig.json
 README.md (если package имеет нетривиальный контракт)
 ```
 
-Public exports идут только через `src/index.ts`. Глубокие imports вроде `@fable/simulation/src/internal/...` запрещены.
+Public exports идут только через `src/index.ts`. Глубокие imports вроде `@fable/rules/src/engine/internal/...` запрещены.
 
 Примеры имён:
 
 ```text
 @fable/contracts
 @fable/rules
-@fable/simulation
 @fable/content
 @fable/test-fixtures
 @fable/server
@@ -311,6 +303,8 @@ Public exports идут только через `src/index.ts`. Глубокие
 @fable/player
 @fable/gm
 ```
+
+`@fable/simulation` не входит в текущий workspace package list; см. future option в DR-C-001.
 
 ## 8. Порядок выполнения внутри Шага А
 
@@ -332,7 +326,7 @@ Public exports идут только через `src/index.ts`. Глубокие
 
 ### A3 — создать пустые packages
 
-Создать `contracts`, `rules`, `simulation`, `content`, `test-fixtures` с минимальным `index.ts` и smoke test. Пока не писать gameplay.
+Создать `contracts`, `rules`, `content`, `test-fixtures` с минимальным `index.ts` и smoke test. Step C Core Engine позднее размещается в `rules` согласно DR-C-001.
 
 ### A4 — подключить docs
 
@@ -403,7 +397,7 @@ Acceptance:
 - pnpm install --frozen-lockfile
 - pnpm check
 - no circular dependencies
-- no app imports simulation internals
+- no app imports Core Engine internals from `packages/rules`
 ```
 
 AI сначала должен вернуть план файлов. После подтверждения можно разрешить ему создать scaffold.
@@ -422,7 +416,7 @@ AI сначала должен вернуть план файлов. После 
 - есть README с командами запуска;
 - есть `.env.example`, но нет секретов;
 - dependency graph не содержит циклов;
-- contracts, rules, simulation, content и server имеют отдельные boundaries;
+- contracts, `packages/rules` Core Engine, content и server имеют ясные boundaries;
 - пять базовых Markdown-документов и технические документы доступны из repository;
 - AI context packet для Шага А воспроизводим;
 - gameplay-код ещё не начал проникать в setup commit.

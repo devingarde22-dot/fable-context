@@ -24,7 +24,7 @@ Markdown contracts and JSON Schemas are the source of truth. `reference/gdd-site
 
 The project is now moving to **Step C — Core Engine & State Machine**. The normative specification is [`docs/14-step-c-core-engine.md`](docs/14-step-c-core-engine.md).
 
-The AI developer must implement a headless simulation package first. It must not implement React, WebSocket transport, PostgreSQL persistence or AI Copilot until the Step C Definition of Done passes.
+The Step C headless Core Engine lives in `packages/rules` per DR-C-001. Do not implement React, WebSocket transport, PostgreSQL persistence or AI Copilot until the relevant Step C Definition of Done passes.
 
 The first implementation increment is deliberately small:
 

@@ -180,7 +180,7 @@ Payload — `{}`. Preconditions: ownership, fresh revision, state allows mode ch
 
 `requestId` уникален и сохраняется в `command_requests`; повтор того же requestId возвращает сохранённый результат и не создаёт новый event. Если тот же requestId приходит с другим command/payload, рекомендуется `DUPLICATE_REQUEST` без выполнения второй версии.
 
-Любой rejected stale command не меняет state и не становится бесплатным действием. В успешном `CommandResult` возвращаются `requestId`, `acceptedAt`, `eventIds`, новый `sceneRevision`; в rejection — `requestId`, safe `code`, актуальный `sceneRevision`, safeMessage. Точный тип `acceptedAt` следует унифицировать: system contract использует number, transport docs не фиксируют единицы.
+Любой rejected stale command не меняет gameplay state, `sceneRevision` или domain journal и не становится бесплатным действием; authoritative `serverTick` может продолжать идти независимо. В успешном `CommandResult` возвращаются `requestId`, `acceptedAt`, `eventIds`, новый `sceneRevision`; в rejection — `requestId`, safe `code`, актуальный `sceneRevision`, safeMessage. Точный тип `acceptedAt` следует унифицировать: system contract использует number, transport docs не фиксируют единицы.
 
 ### 2.6 Error codes
 

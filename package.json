@@ -11,7 +11,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "test:simulation": "pnpm --filter @fable/rules test",
+    "test:rules": "pnpm --filter @fable/rules test",
     "check": "pnpm typecheck && pnpm lint && pnpm test"
   },
   "devDependencies": {

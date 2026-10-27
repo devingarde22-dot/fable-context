@@ -226,7 +226,7 @@ Invalid fixtures делятся на `schema_invalid` и `domain_invalid`. Пе�
 
 | Fixture | Ошибка | Ожидание |
 |---|---|---|
-| `missing-request-id.json` | отсутствует required `requestId` | schema reject; нет state/event |
+| `missing-request-id.json` | отсутствует required `requestId` | schema reject; no gameplay mutation/domain event |
 | `unknown-envelope-field.json` | `serverReceiveSequence` прислан клиентом | schema reject; server sequence не доверяется |
 | `bad-role.json` | `role: "tv"` | schema reject |
 | `bad-command.json` | неизвестное имя command | schema reject |
@@ -237,10 +237,10 @@ Invalid fixtures делятся на `schema_invalid` и `domain_invalid`. Пе�
 | `card-client-damage.json` | `rawDamage`/`finalDamage` во входе | payload schema reject; клиент не задаёт результат |
 | `card-bad-mode.json` | mode не в `melee/ranged/movement` | payload schema reject |
 | `gm-hint-empty-text.json` | пустой text | payload/domain reject; safe error |
-| `player-calls-gm.json` | player envelope с `gm.send_hint` | auth/role reject; no mutation |
+| `player-calls-gm.json` | player envelope с `gm.send_hint` | auth/role reject; no gameplay mutation |
 | `rollback-without-confirmation.json` | отсутствует token | schema/domain reject; no rollback |
 | `duplicate-request-different-payload.json` | тот же requestId, другой payload | `DUPLICATE_REQUEST`; второй event не создаётся |
-| `stale-revision.json` | устаревший `clientRevision` | `STALE_SCENE_REVISION`; state unchanged |
+| `stale-revision.json` | устаревший `clientRevision` | `STALE_SCENE_REVISION`; gameplay state, `sceneRevision` и journal unchanged; tick/window bookkeeping may advance |
 | `zero-stamina-positive-card.json` | shape valid, cost > 0 при stamina 0 | `INSUFFICIENT_STAMINA`; no card.played |
 | `blocked-move.json` | shape valid, клетка занята/закрыта | `CELL_BLOCKED`; no move event |
 | `hidden-target-card.json` | shape valid, target not visible/allowed | safe `TARGET_NOT_VISIBLE`; hidden reason absent |
@@ -420,7 +420,7 @@ Invalid:
 - invalid fixtures дают stable error class/path, но не зависят от текста библиотеки validator;
 - `additionalProperties: false` защищает envelope и typed payload;
 - nullability проверяется отдельно от omission;
-- schema reject не вызывает state mutation.
+- schema reject не вызывает gameplay-state mutation или domain event.
 
 Golden error хранит нормализованный объект, например:
 
@@ -436,12 +436,12 @@ Golden error хранит нормализованный объект, напр�
 
 ### 3.2 Command lifecycle goldens
 
-Для каждого command vertical slice нужен минимум один accepted и один rejected path. Accepted golden проверяет command result, event type(s), causation, post-revision и filtered recipients. Rejected golden проверяет error code, unchanged state/revision и отсутствие domain event.
+Для каждого command vertical slice нужен минимум один accepted и один rejected path. Accepted golden проверяет command result, event type(s), causation, post-revision и filtered recipients. Rejected golden проверяет error code, unchanged gameplay state/`sceneRevision`/domain journal и отсутствие domain event. `serverTick` и scheduler bookkeeping могут продвигаться при обработке закрываемого окна.
 
 Обязательные cases:
 
 1. `player.move` в свободную клетку → один `scene.entity_moved`;
-2. move через wall/statue/enemy/ally → `CELL_BLOCKED`, state unchanged;
+2. move через wall/statue/enemy/ally → `CELL_BLOCKED`, gameplay state/`sceneRevision`/journal unchanged (tick bookkeeping may advance);
 3. stale move → `STALE_SCENE_REVISION`, no event;
 4. same requestId retry → original result, no duplicate events;
 5. positive-cost card at stamina 0 → `INSUFFICIENT_STAMINA`;
@@ -500,9 +500,9 @@ Golden files обновляются только вместе с одним из
 | ID | Contract / scenario | Fixture | Expected check | Rule/API source | Level |
 |---|---|---|---|---|---|
 | F-01 | command envelope valid | `player.move.json` | schema pass; no client server fields | TIME-001; system §2; command schema | schema |
-| F-02 | unknown command field | `unknown-envelope-field.json` | reject, no mutation | system §2; API §4 | schema |
+| F-02 | unknown command field | `unknown-envelope-field.json` | reject, no gameplay mutation/domain event | system §2; API §4 | schema |
 | F-03 | direction invalid | `move-diagonal.json` | enum reject | MOVE-001/002 | schema |
-| F-04 | blocked movement | `blocked-move.json` | `CELL_BLOCKED`, revision/state unchanged | MOVE-002, TIME-005 | integration |
+| F-04 | blocked movement | `blocked-move.json` | `CELL_BLOCKED`, gameplay state/revision/journal unchanged; tick bookkeeping may advance | MOVE-002, TIME-005 | integration |
 | F-05 | stale command | `stale-revision.json` | `STALE_SCENE_REVISION`, no free action | TIME-005 | integration |
 | F-06 | idempotent retry | duplicate fixtures | same result, no duplicate event | system §1; API §8 | integration |
 | F-07 | play-card input safety | `card-client-damage.json` | reject extra result fields | DECK-006/007; constitution §4.1 | schema |
@@ -586,7 +586,7 @@ Definition of Done для этой темы: все F-01—F-26 имеют fixtu
 ### C-06 — Error code `TARGET_REQUIRED` нужен command review, но отсутствует enum
 
 **Факт:** non-AOE multi-target без target описан как ожидаемый безопасный отказ в commands review, однако `03-system-contracts.md §8` его не перечисляет.  
-**Решение:** до добавления error code тестировать только schema/domain invariant “no mutation” либо использовать уже подтверждённый эквивалент после ADR. Нельзя добавлять новый public error code молча.
+**Решение:** до добавления error code тестировать только schema/domain invariant “no gameplay mutation/domain event” либо использовать уже подтверждённый эквивалент после ADR. Нельзя добавлять новый public error code молча.
 
 ### C-07 — Visibility schema не связывает annotation с DTO
 
@@ -652,11 +652,11 @@ Definition of Done для этой темы: все F-01—F-26 имеют fixtu
 
 ### Runtime/serializer files
 
-- `/home/ubuntu/lilovaya-gar/dev/server/CampaignRoom.ts` — command validation, idempotency, revision, role routing, event fan-out и reconnect;
+- `/home/ubuntu/lilovaya-gar/dev/server/CampaignRoom.ts` — transport/auth adapter, routing, event fan-out и reconnect; gameplay validation/mutation/revision delegated to `packages/rules` per DR-C-001;
 - `/home/ubuntu/lilovaya-gar/dev/server/index.ts` — HTTP/WS contract routing и safe errors;
 - `/home/ubuntu/lilovaya-gar/dev/client/room-client.ts` — только после server contract; client не должен считать state/result;
 - новый projection/visibility policy module под `/home/ubuntu/lilovaya-gar/dev/server/` или соответствующий package path;
-- новый headless simulation module, если он ещё не создан в scaffold.
+- расширение существующего headless Core Engine в `packages/rules/src/engine/` по мере прохождения Step C; не помещать gameplay state machine в room adapter.
 
 ### Tests/goldens
 

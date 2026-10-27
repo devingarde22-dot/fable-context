@@ -454,7 +454,7 @@ Envelope требует `sceneRevision`, но schema не требует `caused
 
 ### Runtime and persistence
 
-- `server/simulation` entity/state types and validators — introduce typed authoritative model and invariant checks.
+- `packages/rules/src/engine/` entity/state types and validators — extend the authoritative headless model and invariant checks per DR-C-001; server remains an adapter.
 - projection/filter service — generate TV/Player/GM/AI DTOs before serialization.
 - event/command registry and handlers — bind discriminated schemas to authorization, revision and emitted events.
 - database schema/migrations and typed JSONB definitions — only after the entity contract and Decision Records are approved.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createSimulationEngine } from "../src/engine/SimulationEngine.js";
 import type { SchedulerPhase } from "../src/scheduler/orderCommands.js";
-import { hero, moveCommand, testConfig } from "./createTestEngine.js";
+import { gameplayState, hero, moveCommand, testConfig } from "./createTestEngine.js";
 
 describe("authoritative scheduler", () => {
   it("does not execute before the 250 ms window closes at tick five", () => {
@@ -31,10 +31,15 @@ describe("authoritative scheduler", () => {
 
     const rejectedReceipt = engine.submit(moveCommand("rejected-batch", "right", { revision: 1 }));
     expect(rejectedReceipt).toMatchObject({ status: "queued" });
+    const beforeRejectedWindow = engine.snapshot();
     const rejectedWindow = engine.advanceTicks(5).at(-1);
+    const afterRejectedWindow = engine.snapshot();
     expect(rejectedWindow?.commandResults).toMatchObject([{ requestId: "rejected-batch", status: "rejected", code: "CELL_BLOCKED" }]);
     expect(rejectedWindow?.sceneRevision).toBe(1);
-    expect(engine.state.sceneRevision).toBe(1);
+    expect(gameplayState(afterRejectedWindow)).toEqual(gameplayState(beforeRejectedWindow));
+    expect(afterRejectedWindow.serverTick).toBe(beforeRejectedWindow.serverTick + 5);
+    expect(afterRejectedWindow.scene.inputWindow.windowId).toBe(beforeRejectedWindow.scene.inputWindow.windowId + 1);
+    expect(afterRejectedWindow.scene.inputWindow.commands).toEqual([]);
     expect(engine.events()).toHaveLength(1);
   });
 

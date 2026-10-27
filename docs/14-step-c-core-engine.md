@@ -44,9 +44,11 @@ Step C превращает подтверждённые правила в де�
 
 Команда содержит намерение: направление, карту, режим или цель. Она не может содержать `rawDamage`, `finalDamage`, `hit`, `critical`, `seed`, `destination`, `newHp`, `newStamina` или другой вычисленный результат.
 
-### C-003 — атомарный batch
+### C-003 — command-level atomicity inside an ordered batch
 
-Одна закрытая input window обрабатывается как атомарный batch. Либо все допустимые изменения batch применяются в определённом порядке, либо state не изменяется. Отклонённая команда не создаёт domain event и не увеличивает `sceneRevision`.
+Одна закрытая input window обрабатывается как детерминированный batch в порядке players → enemies → environment. Каждая команда валидируется и применяется атомарно: если команда отклонена, вызванная именно ею gameplay mutation не происходит, domain event не создаётся и `sceneRevision` не увеличивается. Уже принятые ранее команды того же batch не откатываются из-за последующего reject; например, при конкуренции за одну клетку команда-победитель применяется, остальные конфликтующие команды отклоняются. Если batch содержит одну или более принятых gameplay mutations, они входят в один event group и увеличивают `sceneRevision` ровно один раз.
+
+Authoritative `serverTick` и scheduler/input-window bookkeeping продолжают продвигаться независимо от результата команды. Их изменение при закрытии окна не считается gameplay mutation, вызванной отклонённой командой.
 
 ### C-004 — deterministic replay
 
@@ -411,7 +413,7 @@ raw transport message
 
 ### Rejection rules
 
-Rejection не изменяет state, не записывает domain event и не увеличивает revision. Transport может вернуть `command.rejected` result, но это не journal event.
+Rejection не вызывает gameplay-state mutation, не записывает domain event и не увеличивает revision. Authoritative `serverTick` и scheduler bookkeeping могут продвигаться независимо от reject. Transport может вернуть `command.rejected` result, но это не journal event.
 
 Минимальные Step C errors:
 
@@ -859,8 +861,8 @@ Pure formulas (`damage.ts`, `targeting.ts`, `pathing.ts`) должны имет�
 1. `player.move` changes one cell and emits one movement event.
 2. Two players targeting the same cell resolve deterministically; only one succeeds.
 3. Player and enemy due in same window resolve players first.
-4. Stale revision changes nothing.
-5. Duplicate request changes nothing and returns same idempotent result.
+4. Stale revision leaves gameplay state, `sceneRevision` and journal unchanged; `serverTick`/window bookkeeping may still advance.
+5. Duplicate request creates no additional gameplay mutation or event and returns the idempotent duplicate result.
 6. Retreat causes one free attack per surrounding enemy and grants immunity.
 7. Contact starts melee; ranged mode requires available ranged card.
 8. Melee magic halves damage but preserves status potency.

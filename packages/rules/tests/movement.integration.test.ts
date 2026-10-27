@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createSimulationEngine } from "../src/engine/SimulationEngine.js";
 import { cellIndex } from "../src/grid/Grid.js";
-import { enemy, hero, moveCommand, testConfig } from "./createTestEngine.js";
+import { enemy, gameplayState, hero, moveCommand, testConfig } from "./createTestEngine.js";
 
 describe("player.move integration", () => {
   it.each([
@@ -37,7 +37,7 @@ describe("player.move integration", () => {
     { direction: "up" as const, from: [1, 0] as const, expected: "CELL_OUT_OF_BOUNDS" },
     { direction: "right" as const, from: [7, 2] as const, expected: "CELL_BLOCKED" },
     { direction: "down" as const, from: [3, 2] as const, expected: "CELL_BLOCKED" },
-  ])("rejects bounds and terrain collision without changing game state", ({ direction, from, expected }) => {
+  ])("rejects bounds and terrain collision without gameplay mutation", ({ direction, from, expected }) => {
     const terrain = expected === "CELL_BLOCKED"
       ? [{ cell: { x: from[0] + (direction === "right" ? 1 : 0), y: from[1] + (direction === "down" ? 1 : 0) }, terrain: direction === "right" ? "wall" as const : "statue" as const }]
       : [];
@@ -48,17 +48,13 @@ describe("player.move integration", () => {
     const submit = engine.submit(moveCommand("blocked", direction));
     expect(submit.status).toBe("queued");
     const before = engine.snapshot();
-    engine.advanceTicks(5);
+    const closingResults = engine.advanceTicks(5);
     const after = engine.snapshot();
-    expect(after.entities).toEqual(before.entities);
-    expect(after.sceneRevision).toBe(before.sceneRevision);
+    expect(gameplayState(after)).toEqual(gameplayState(before));
+    expect(after.serverTick).toBe(before.serverTick + 5);
+    expect(after.scene.inputWindow.windowId).toBe(before.scene.inputWindow.windowId + 1);
+    expect(closingResults.at(-1)?.commandResults[0]).toMatchObject({ status: "rejected", code: expected });
     expect(engine.events()).toHaveLength(0);
-    expect(engine.advanceTicks(0)).toHaveLength(0);
-    // The final command result is on the exact window-closing tick.
-    const second = createSimulationEngine(testConfig({ entities: [hero("hero-1", from[0], from[1])], terrain }));
-    second.submit(moveCommand("blocked", direction));
-    const tickResults = second.advanceTicks(5);
-    expect(tickResults.at(-1)?.commandResults[0]).toMatchObject({ status: "rejected", code: expected });
   });
 
   it("blocks movement through enemy, ally, wall and statue occupied/terrain cells", () => {
@@ -86,8 +82,7 @@ describe("player.move integration", () => {
     }));
     const beforeStale = engine.snapshot();
     expect(engine.submit(moveCommand("stale", "right", { revision: 99 }))).toMatchObject({ status: "rejected", code: "STALE_SCENE_REVISION" });
-    expect(engine.snapshot().entities).toEqual(beforeStale.entities);
-    expect(engine.snapshot().sceneRevision).toBe(beforeStale.sceneRevision);
+    expect(gameplayState(engine.snapshot())).toEqual(gameplayState(beforeStale));
     expect(engine.events()).toHaveLength(0);
     expect(engine.submit(moveCommand("unauth", "right", { actorId: "unknown" }))).toMatchObject({ status: "rejected", code: "AUTH_FORBIDDEN" });
     expect(engine.submit(moveCommand("mode", "right", { actorId: "actor-2" }))).toMatchObject({ status: "rejected", code: "INVALID_MODE" });

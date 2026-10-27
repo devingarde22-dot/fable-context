@@ -3,6 +3,8 @@
 **Версия:** 0.1  
 **Назначение:** готовый способ передать Fable AI-разработчику и начать первую задачу.
 
+> **Область применения:** это переиспользуемый starter Шага A для нового repository, а не prompt текущей задачи. Проект уже перешёл к Step C; headless Core Engine находится в `packages/rules` согласно DR-C-001. Не начинай Step A заново и не создавай/переноси engine в `packages/simulation`.
+
 ## 1. Что загружать
 
 Для первой задачи не нужно загружать весь HTML-сайт и всю историю чата. Загрузите эти файлы:
@@ -68,8 +70,7 @@ packages/contracts/visibility.schema.json
 
 Используй границы из 12-step-a-repository-and-monorepo.md:
 - @fable/contracts;
-- @fable/rules;
-- @fable/simulation;
+- @fable/rules (pure rules and, for Step C, the headless Core Engine per DR-C-001);
 - @fable/content;
 - @fable/test-fixtures;
 - server;
@@ -123,7 +124,7 @@ packages/contracts/visibility.schema.json
 
 ```text
 Покажи git diff и выполни pnpm check.
-Проверь dependency graph: contracts → rules → simulation → server/apps.
+Проверь dependency graph: contracts → rules (including the Step C Core Engine) → server/apps.
 Подтверди, что gameplay, UI, DB и AI не были добавлены в Step A.
 Если всё проходит, подготовь список файлов для commit, но не выполняй commit без моего разрешения.
 ```

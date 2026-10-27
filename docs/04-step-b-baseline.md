@@ -145,7 +145,7 @@ Rule IDs: `DECK-001`—`DECK-006`, `INTENT-001`—`INTENT-005`, `STATUS-001`.
 
 `CommandEnvelope.payload` and `EventEnvelope.payload` are discriminated unions. JSON Schema uses `oneOf`/`$defs`, discriminator const on `command` or `eventType`, and `additionalProperties:false` at envelope and each payload. Domain validation follows schema: conditional target requirements are checked from CardTemplate; schema allows optional `targetEntityId`/`targetCell` but rejects client result fields (`rawDamage`, `finalDamage`, `hit`, `seed`, `destination`).
 
-**Wire consequence:** unknown command/event names, extra fields, wrong payload shape and client-supplied outcomes fail before scheduler; rejected schema input does not alter revision, state or journal.
+**Wire consequence:** unknown command/event names, extra fields, wrong payload shape and client-supplied outcomes fail before scheduler; rejected schema input does not alter gameplay state, `sceneRevision` or journal. The independent authoritative tick loop may still advance.
 
 ## 3. Canonical registries
 

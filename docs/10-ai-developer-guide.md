@@ -28,8 +28,8 @@
 - INTENT-005
 
 ## Allowed files
-- server/simulation/intents/ranged-shot.ts
-- tests/simulation/ranged-shot.test.ts
+- packages/rules/src/ (relevant headless Core Engine subsystem; see DR-C-001)
+- packages/rules/tests/
 
 ## Forbidden changes
 - lore
