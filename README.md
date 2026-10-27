@@ -13,15 +13,27 @@ Read in this order:
 5. `docs/04-step-b-baseline.md`
 6. `docs/03-system-contracts.md`
 7. `docs/05-vertical-slice.md`
-8. `packages/contracts/*.json`
-9. `docs/12-step-a-repository-and-monorepo.md`
-10. `docs/13-ai-task-starter.md`
+8. `docs/14-step-c-core-engine.md`
+9. `packages/contracts/*.json`
+10. `docs/12-step-a-repository-and-monorepo.md`
+11. `docs/13-ai-task-starter.md`
 
 Markdown contracts and JSON Schemas are the source of truth. `reference/gdd-site/index.html` is only a visual overview.
 
 ## Current implementation task
 
-The next implementation task is **Step A — repository and monorepo scaffold**. The AI must first return a plan and wait for approval. It must not implement gameplay, UI, WebSocket, database migrations or AI Copilot during Step A.
+The project is now moving to **Step C — Core Engine & State Machine**. The normative specification is [`docs/14-step-c-core-engine.md`](docs/14-step-c-core-engine.md).
+
+The AI developer must implement a headless simulation package first. It must not implement React, WebSocket transport, PostgreSQL persistence or AI Copilot until the Step C Definition of Done passes.
+
+The first implementation increment is deliberately small:
+
+1. 9×9 grid and collision;
+2. `player.move`;
+3. 20 Hz clock and 250 ms input windows;
+4. deterministic ordering: players → enemies → environment;
+5. in-memory event journal and replay;
+6. then modes, intents, cards, HP, stamina and statuses.
 
 ## Project rules
 

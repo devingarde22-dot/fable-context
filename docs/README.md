@@ -20,6 +20,7 @@
 14. [Step B Reviews](./step-b-reviews/README.md) — результаты шести агентов по contracts и JSON Schema.
 15. [Step B Baseline](./04-step-b-baseline.md) — сведённые решения и закрытые технические вопросы.
 16. [AI Task Starter](./13-ai-task-starter.md) — что загрузить AI-разработчику и готовый prompt.
+17. [Step C — Core Engine & State Machine](./14-step-c-core-engine.md) — серверные сущности, tick loop, scheduler, режимы, intents, replay и acceptance tests.
 
 ## Правило использования
 
@@ -62,7 +63,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Текущая первая задача: реализовать headless simulation для одной сцены 9×9 с движением, `move_close`, `melee_strike`, `ranged_shot`, HP, стаминой, одним статусом, fixed seed и event journal.
+Текущая задача Step C: реализовать headless simulation для одной сцены 9×9 с движением, `move_close`, `melee_strike`, `ranged_shot`, HP, стаминой, status layers, fixed seed и event journal. Нормативная спецификация: `docs/14-step-c-core-engine.md`.
 
 ## Machine-readable contracts
 
