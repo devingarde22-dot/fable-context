@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fable.local/schemas/intent.schema.json",
+  "title": "Fable Intent Contracts v1",
+  "oneOf": [
+    { "$ref": "#/$defs/intentTemplate" },
+    { "$ref": "#/$defs/activeIntent" }
+  ],
+  "$defs": {
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": { "x": { "type": "integer", "minimum": 0 }, "y": { "type": "integer", "minimum": 0 } }
+    },
+    "timer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startedAtTick", "resolvesAtTick", "durationMs", "remainingMs", "paused"],
+      "properties": {
+        "startedAtTick": { "type": "integer", "minimum": 0 },
+        "resolvesAtTick": { "type": "integer", "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 3000 },
+        "remainingMs": { "type": "integer", "minimum": 0 },
+        "paused": { "type": "boolean" }
+      }
+    },
+    "visibility": { "type": "string", "enum": ["public", "conditional", "gm_only"] },
+    "intentTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "key", "version", "status", "icon", "durationMs", "conditions", "effect", "targetRules", "fallbackKeys", "visibility"],
+      "properties": {
+        "kind": { "const": "intent_template" },
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" },
+        "version": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["draft", "confirmed", "deprecated"] },
+        "icon": { "type": "string", "minLength": 1 },
+        "durationMs": { "type": "integer", "minimum": 3000 },
+        "conditions": { "type": "object" },
+        "effect": { "type": "object" },
+        "targetRules": { "type": "object" },
+        "fallbackKeys": { "type": "array", "items": { "type": "string" } },
+        "visibility": { "$ref": "#/$defs/visibility" },
+        "revealPolicy": { "$ref": "#/$defs/revealPolicy" }
+      }
+    },
+    "activeIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "activeIntentId", "templateKey", "enemyId", "timer", "state", "visibility"],
+      "properties": {
+        "kind": { "const": "active_intent" },
+        "activeIntentId": { "type": "string", "minLength": 1 },
+        "templateKey": { "type": "string", "minLength": 1 },
+        "enemyId": { "type": "string", "minLength": 1 },
+        "timer": { "$ref": "#/$defs/timer" },
+        "state": { "enum": ["started", "telegraphed", "resolving", "resolved", "cancelled"] },
+        "targetEntityId": { "type": "string" },
+        "targetCell": { "$ref": "#/$defs/cell" },
+        "publicTargetCell": { "$ref": "#/$defs/cell" },
+        "visibility": { "$ref": "#/$defs/visibility" },
+        "revealPolicy": { "$ref": "#/$defs/revealPolicy" },
+        "createdAtTick": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "revealPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "revealKey", "revealEventType"],
+      "properties": {
+        "visibility": { "const": "conditional" },
+        "revealKey": { "type": "string", "minLength": 1 },
+        "revealEventType": { "type": "string", "pattern": "^[a-z][a-z0-9_]+(\\.[a-z0-9_]+)+$" }
+      }
+    }
+  }
+}
