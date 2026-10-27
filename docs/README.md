@@ -21,6 +21,7 @@
 15. [Step B Baseline](./04-step-b-baseline.md) — сведённые решения и закрытые технические вопросы.
 16. [AI Task Starter](./13-ai-task-starter.md) — что загрузить AI-разработчику и готовый prompt.
 17. [Step C — Core Engine & State Machine](./14-step-c-core-engine.md) — серверные сущности, tick loop, scheduler, режимы, intents, replay и acceptance tests.
+18. [DR-C-002 — Enemy Registry + Deterministic Intent Simulation](./15-step-c-intent-simulation.md) — подтверждённая схема intent, активный enemy roster, timers, RNG, fallback и golden replay requirements.
 
 ## Правило использования
 

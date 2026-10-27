@@ -18,7 +18,7 @@
 
 Каждый snapshot должен иметь discriminator `projection` и валидироваться соответствующей schema. Рекомендуемые типы:
 
-- `TVSceneProjection`: `projection: "tv"`; `sceneRevision`, public grid/obstacles, public entity positions, public HP только если разрешён сценарий, public status subset/VFX, intent icon, public timer, public target cell/area, public scene events.
+- `TVSceneProjection`: `projection: "tv"`; `sceneRevision`, public grid/obstacles, public entity positions, public HP только если разрешён сценарий, public status subset/VFX, intent icon, public timer, target cell/area only after explicit visibility/reveal approval, public scene events.
 - `PlayerSceneProjection`: `projection: "player"`, `playerId`/`heroId`; всё разрешённое TV плюс состояние собственного героя, own HP/maxHP, stamina/maxStamina, mode, own full statuses, filtered hand до 5 карт, defense slot, server-computed available targets, movement directions, private hints только адресата. Чужие hand, defense slot, draw pile и discard не включаются.
 - `GMSceneProjection`: `projection: "gm"`; полная **авторизованная** runtime projection для единственного GM: exact intents/targets, all hands/defense slots/discards/draw piles, full status layers, formulas, seeds, hidden lore, audit, proposals и редакторы. Это не означает отправку необработанного server/database state: поля всё равно должны быть типизированы и разрешены policy.
 - `AIContextPacket`: `projection: "ai_context"`; explicit allow-list с `contextVersion`, `campaignId`, `sceneId`, `rulesetVersion`, `publicFacts`, опциональными `gmFacts`, `recentEvents`, `availableTemplates`. AI не получает generic `GMSceneProjection`, credentials, чужие руки по умолчанию, seed, audit или возможность применить command.
@@ -40,7 +40,7 @@
 | enemy HP | public only when scene policy allows | same public subset | same public subset | yes | only packet |
 | intent icon/timer | public telegraph | public telegraph | public telegraph | yes | only packet |
 | exact intent key/conditions/fallback/targetId | no | no unless explicitly revealed | no | yes | only packet |
-| target red cell/area | public telegraph | public telegraph | public telegraph | yes | only packet |
+| target red cell/area | only when explicitly approved public telegraph | only when explicitly approved public telegraph | only when explicitly approved public telegraph | yes | only packet |
 | seed, raw/final formula, audit reason | no | no | no | yes/audit | no by default |
 | GM lore/hidden route/reward | no | no | no | yes | only explicitly selected |
 | private hint text | no | target only | no | GM/audit | no unless requested in packet |
@@ -83,7 +83,7 @@ AI packet строится отдельным adapter-ом с allow-list и cont
 }
 ```
 
-В этом DTO нет hand, stamina, exact intent key, exact target identity, seed, audit reason и GM lore.
+Этот пример предполагает, что visibility/reveal policy отдельно разрешила target cell для public telegraph. Без такого решения поле `targetCell` полностью опускается. DTO не содержит hand, stamina, exact intent key, exact target identity, seed, audit reason и GM lore.
 
 ### 3.2 Player snapshot в бою
 

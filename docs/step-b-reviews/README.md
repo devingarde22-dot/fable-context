@@ -1,8 +1,8 @@
 # Fable — Step B Reviews
 
-**Статус:** agent review completed / synthesis pending
+**Статус:** historical review completed; implementation/status is superseded by current confirmed docs and Decision Records
 
-Шесть независимых агентов проверили разные части Shared Contracts и JSON Schema. Эти отчёты являются review-слоем, а не окончательной заменой confirmed-документов. Перед реализацией их нужно свести в единый Step B decision record.
+Шесть независимых агентов проверили разные части Shared Contracts и JSON Schema. Эти отчёты являются историческим review-слоем, а не окончательной заменой confirmed-документов. Package boundary is fixed by DR-C-001; typed intent schema, active runtime scope and deterministic RNG are fixed by DR-C-002. Current work must follow the confirmed baseline, Step C specification, and those Decision Records—not treat the earlier synthesis proposal below as pending implementation work.
 
 ## Отчёты
 
@@ -24,4 +24,4 @@
 
 ## Текущий статус
 
-Эти вопросы пока не переводятся автоматически в `CONFIRMED`: они требуют отдельного решения и Decision Record. Следующая задача — свести шесть отчётов, выбрать baseline и обновить typed JSON Schema.
+Оставшиеся review observations do not become `CONFIRMED` automatically; consult the current baseline and applicable Decision Records for their status. The original proposal to synthesize the six reports and update schemas is historical and has been superseded for the decisions already recorded in DR-C-001/002.

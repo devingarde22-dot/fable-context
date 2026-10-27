@@ -11,13 +11,13 @@ export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
       width: snapshot.scene.width,
       height: snapshot.scene.height,
       cells: [...snapshot.scene.cells].sort((a, b) => a.y - b.y || a.x - b.x),
-      playerEntityIds: [...snapshot.scene.playerEntityIds].sort(),
-      enemyEntityIds: [...snapshot.scene.enemyEntityIds].sort(),
+      playerEntityIds: [...snapshot.scene.playerEntityIds].sort(compareText),
+      enemyEntityIds: [...snapshot.scene.enemyEntityIds].sort(compareText),
       startedAtTick: snapshot.scene.startedAtTick,
       inputWindow: {
         windowId: snapshot.scene.inputWindow.windowId,
         commands: [...snapshot.scene.inputWindow.commands]
-          .sort((a, b) => a.serverReceiveSequence - b.serverReceiveSequence || a.actorId.localeCompare(b.actorId) || a.requestId.localeCompare(b.requestId))
+          .sort((a, b) => a.serverReceiveSequence - b.serverReceiveSequence || compareText(a.actorId, b.actorId) || compareText(a.requestId, b.requestId))
           .map((command) => ({
             requestId: command.requestId,
             sessionId: command.sessionId,
@@ -30,8 +30,9 @@ export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
           })),
       },
     },
-    entities: [...snapshot.entities].sort((a, b) => a.id.localeCompare(b.id)),
-    heroIdByActorId: [...snapshot.heroIdByActorId].sort(([a], [b]) => a.localeCompare(b)),
+    entities: [...snapshot.entities].sort((a, b) => compareText(a.id, b.id)),
+    activeIntents: [...snapshot.activeIntents].sort((a, b) => compareText(a.activeIntentId, b.activeIntentId)),
+    heroIdByActorId: [...snapshot.heroIdByActorId].sort(([a], [b]) => compareText(a, b)),
     serverTick: snapshot.serverTick,
     sceneRevision: snapshot.sceneRevision,
     nextServerSequence: snapshot.nextServerSequence,
@@ -43,9 +44,13 @@ export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
 }
 
 export function stateHashFromSnapshot(snapshot: RuntimeSnapshot): string {
-  return createHash("sha256").update(canonicalizeSnapshot(snapshot)).digest("hex");
+  return createHash("sha256").update(canonicalizeSnapshot(snapshot), "utf8").digest("hex");
 }
 
 export function stateHash(state: RuntimeState): string {
   return stateHashFromSnapshot(snapshotState(state));
+}
+
+function compareText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }

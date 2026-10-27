@@ -18,6 +18,7 @@ describe("deterministic replay", () => {
     expect(replayed).toEqual(live);
     expect(stateHashFromSnapshot(replayed)).toBe(stateHash(engine.state as ReturnType<typeof createRuntimeState>));
     expect(engine.replay(engine.events())).toEqual(live);
+    expect(engine.replayJournal()).toEqual(live);
   });
 
   it("rejects reordered, out-of-scope and inconsistent replay events", () => {
@@ -25,10 +26,10 @@ describe("deterministic replay", () => {
     const engine = createSimulationEngine(config);
     engine.submit(moveCommand("move-1", "right"));
     engine.advanceTicks(5);
-    const [event] = engine.events();
-    if (!event) throw new Error("expected event");
+    const event = engine.events().find((candidate) => candidate.eventType === "scene.entity_moved");
+    if (!event || event.eventType !== "scene.entity_moved") throw new Error("expected movement event");
     const initial = createRuntimeState(config);
-    expect(() => replayEvents(initial, [{ ...event, serverSequence: 0 }])).toThrow(/strictly increasing/);
+    expect(() => replayEvents(initial, [{ ...event, serverSequence: 0 }])).toThrow(/consecutive/);
     expect(() => replayEvents(initial, [{ ...event, sceneId: "other" }])).toThrow(/scope/);
     expect(() => replayEvents(initial, [{ ...event, payload: { ...event.payload, from: { x: 8, y: 8 } } }])).toThrow(/from-cell/);
   });
@@ -65,5 +66,16 @@ describe("deterministic replay", () => {
     );
     expect(replayed).toEqual(live);
     expect(stateHashFromSnapshot(replayed)).toBe(stateHash(first.state as ReturnType<typeof createRuntimeState>));
+    expect(first.replayJournal()).toEqual(live);
+  });
+
+  it("replays queued input-window commands exactly before the five-tick close", () => {
+    const engine = createSimulationEngine(testConfig());
+    engine.submit(moveCommand("pending-window-command", "right"));
+    engine.advanceTicks(2);
+    const live = engine.snapshot();
+    expect(live.scene.inputWindow.commands).toHaveLength(1);
+    expect(engine.replayJournal()).toEqual(live);
+    expect(stateHashFromSnapshot(engine.replayJournal())).toBe(stateHash(engine.state as ReturnType<typeof createRuntimeState>));
   });
 });

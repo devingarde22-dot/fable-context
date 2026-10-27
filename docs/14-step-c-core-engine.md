@@ -311,7 +311,7 @@ Transport adapter передаёт уже schema-validated `InternalCommand` с 
 
 ### 6.3 WINDOW_CLOSE
 
-Когда окно закрывается, commands сортируются строго так:
+На каждом authoritative tick фазы выполняются в фиксированном порядке. Player commands обрабатываются только при закрытии их пяти-tick input window; due enemy intents проверяются на каждом tick. Поэтому на window-close tick сначала применяются player commands, затем due enemy intents, затем environment:
 
 ```text
 1. player commands
@@ -344,7 +344,7 @@ requestId ASC
 
 ### 6.5 INTENT_RESOLUTION
 
-Каждый enemy с intent, достигшим `resolvesAtTick`, разрешается один раз. Intent resolution проверяет актуальные клетки, LoS, target validity и statuses. Невыполнимый intent не наносит частичный эффект: он создаёт `intent.cancelled` с причиной и немедленно выбирает следующий возможный template по AI priority order.
+На каждом tick каждый enemy с intent, достигшим `resolvesAtTick`, разрешается не более одного раза. На окне закрытия это происходит после player actions; между закрытиями — после пустой player phase. Intent resolution проверяет актуальные клетки, LoS, target validity и statuses. Невыполнимый intent не наносит частичный эффект: он создаёт `intent.cancelled` с причиной и проверяет ordered fallback согласно DR-C-002.
 
 ### 6.6 ENVIRONMENT
 
@@ -533,9 +533,11 @@ A* не требуется в Step C. Если greedy path не существу
 
 ### ActiveIntent
 
+Подробное подтверждённое решение для Enemy Registry + Deterministic Intent Simulation зафиксировано в [DR-C-002](./15-step-c-intent-simulation.md). Для intent template единственный wire source of truth — `packages/contracts/intent.schema.json`.
+
 ```ts
 export type ActiveIntent = {
-  id: string;
+  activeIntentId: string;
   ownerEntityId: EntityId;
   templateKey: string;
   state: "started" | "telegraphed" | "resolving" | "resolved" | "cancelled";
@@ -543,9 +545,10 @@ export type ActiveIntent = {
   resolvesAtTick: number;
   targetEntityId: EntityId | null;
   targetCell: Cell | null;
-  targetPolicy: "nearest" | "threat" | "seeded_random" | "self" | "ally";
-  selectionSeed: string;
-  cancelReason: string | null;
+  publicTargetCell: Cell | null;
+  selectionPolicy: TargetPolicy;
+  seedRef: string | null;
+  cancelReason: IntentCancelReason | null;
 };
 ```
 
@@ -564,38 +567,36 @@ TELEGRAPHED
 → NEXT_INTENT
 ```
 
-Intent template имеет `durationTicks`, `priority`, `range`, `requiresLineOfSight`, `targetPolicy` и typed effect payload. Базовое намерение — 15 секунд (`300 ticks`), но конкретное намерение может переопределить duration; минимальный allowed duration — 3 секунды (`60 ticks`).
+Wire template использует `durationMs`, `conditions`, `targetRules`, `effect` и `fallbackKeys` согласно `intent.schema.json`. Runtime derives `durationTicks = durationMs / 50`; валидная длительность не меньше 3000 ms и делится на 50 без остатка. Не добавлять параллельные wire fields `durationTicks`, `requiresLineOfSight`, `targetPolicy` или `range`.
 
 ### Target selection
 
 1. Отфильтровать entities по faction, alive state, range, LoS и status rules.
-2. Применить template priority (`threat`, nearest или explicit rule).
-3. Если осталось несколько равных targets, выбрать через forked deterministic seed.
-4. Записать exact target и seed в GM/audit event; TV/Player получают только разрешённый telegraph.
+2. Применить указанную `targetRules.policy` и последовательно проверить `fallbackPolicies`.
+3. Если несколько targets имеют одинаковый лучший rank, выбрать через forked `target_selection` RNG; unique candidate не требует random draw.
+4. Записать exact target, policy, tie-break mode и `seedRef` в GM/audit event; TV/Player получают target cell только при явном разрешении visibility/reveal policy.
 
 ### Impossible intent
 
-Intent считается impossible, если после target filtering нет валидной цели, path, range или LoS. Resolution:
+Intent считается impossible, если после проверки текущего authoritative state не выполняются target, path, range, LoS или effect preconditions. Impossible intent не применяет частичный gameplay mutation. Resolution:
 
 ```text
 intent.cancelled(reason)
-→ choose next valid intent by priority
-→ intent.started
+→ try fallbackKeys in declared order, then hold_position only if allowed by the enemy template
+→ intent.started for the first valid, supported fallback (if any)
 ```
 
-Нельзя бесконечно выбирать один и тот же impossible intent в одном tick: engine ведёт `attemptedTemplateKeys` и после одного прохода использует `hold_position` как final fallback.
+Если валидного fallback нет, emit terminal `intent.cancelled(no_valid_fallback)`, оставить enemy без active intent и не повторять impossible intent в том же tick. `reposition` — deferred/draft, не активный handler и не fallback. Подробности порядка проверки и fallback — в DR-C-002.
 
 ### Первый registry
 
-| Template | Duration | Preconditions | Resolution |
-|---|---:|---|---|
-| `move_close` | 15s | target + path | move one or two intent steps toward target |
-| `melee_strike` | 6s | target in contact | 140 raw damage |
-| `ranged_shot` | 10s | range 2–7 + LoS | 110 raw damage |
-| `reposition` | 8s | valid free cell | deterministic move |
-| `bind` | 12s | visible target <=5 cells | immobilized 15s |
-| `ally_guard` | 15s | ally <=4 cells | +20% defense 15s |
-| `hold_position` | 15s | fallback | no damage, reevaluate |
+| Enemy | Registered content | Active runtime handlers in this increment |
+|---|---|---|
+| `quarantine_chaser` | `move_close`, `melee_strike`, `hold_position` | `move_close`, `melee_strike`, `hold_position` |
+| `slag_shooter` | `ranged_shot`, `reposition` (draft/deferred), `hold_position` | `ranged_shot`, `hold_position` |
+| `extinguisher` | `bind`, `ally_guard`, `move_close` | catalog only; not in active runtime fixture |
+
+`reposition`, `bind`, and `ally_guard` remain non-active handlers in this increment. Enemy-specific timers/effects and RNG/version details are defined in DR-C-002.
 
 ---
 
@@ -875,7 +876,7 @@ Pure formulas (`damage.ts`, `targeting.ts`, `pathing.ts`) должны имет�
 
 ### Golden scenario
 
-Fixed `rootSeed = "fable-step-c-001"` with the Quarantine Gates fixtures must produce a checked-in event transcript. The transcript compares canonical event type, order, serverTick, revision, entity IDs and public outcome. GM-only numerical details are compared in a separate privileged fixture.
+The first checked-in intent transcript uses `rootSeed = "fable-step-c-001"` with a fixed `slag_shooter` and two equally ranked targets; it compares the complete intent event sequence, RNG audit sidecars and final `stateHash`. As later increments add the remaining Quarantine Gates fixtures, extend the golden coverage without weakening this exact intent transcript. GM-only numerical details remain in the privileged fixture, separate from public projections.
 
 ---
 
@@ -904,10 +905,9 @@ Only after this checklist passes should development proceed to Step D/Stage 4 co
 
 These are not blockers for the headless engine if the interfaces remain versioned:
 
-1. final production RNG algorithm and seed serialization;
-2. whether future complex card effects use a typed effect DSL or code-backed handlers;
-3. full `scene_transfer` payload and campaign-level narrative semantics;
-4. exact stamina overload tuning after playtest;
-5. persistence transaction retry policy under database outage.
+1. whether future complex card effects use a typed effect DSL or code-backed handlers;
+2. full `scene_transfer` payload and campaign-level narrative semantics;
+3. exact stamina overload tuning after playtest;
+4. persistence transaction retry policy under database outage.
 
 Any decision that changes event shape, timer semantics, ordering, or state transitions requires a new Decision Record and contract version review.

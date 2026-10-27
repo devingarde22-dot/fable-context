@@ -181,10 +181,10 @@
 
 Текущий `intent.schema.json` является шаблоном, но не runtime active intent. Разделение:
 
-- `IntentTemplate`: `key`, `icon`, `durationMs`, `conditions`, `effect`, `fallbackKeys`, `targetRules`, optional `area`, visibility;
-- `ActiveIntent`: `intentId`, `templateKey`, `ownerEntityId`, `state`, `startedAtTick`, `resolvesAtTick`, `targetEntityId?`, `targetCell?`, `area?`, `cancelReason?`.
+- `IntentTemplate`: `key`, `version/status`, `icon`, `durationMs`, typed `conditions`, `effect`, `fallbackKeys`, `targetRules`, visibility;
+- `ActiveIntent`: `activeIntentId`, `templateKey`, `ownerEntityId`, lifecycle state, `startedAtTick`, `resolvesAtTick`, selected target ID/cell, optional approved public target cell, `seedRef`, and `cancelReason`.
 
-`targetEntityId` и exact conditions не отправляются player/TV по умолчанию. Public projection содержит icon, remaining timer, public target cell/area when telegraph requires it. `intent.schema.json` сейчас допускает arbitrary objects в `conditions/effect/targetRules`, поэтому эти подschemas следует добавить после фиксации content DSL; до этого это отдельный OPEN_QUESTION, а не повод придумывать новый язык эффектов.
+`targetEntityId`, exact conditions and tie-break/seed details are not sent to Player/TV. Public projection contains icon/remaining timer; target cell/area is included only after explicit visibility/reveal approval and otherwise omitted. `conditions/effect/targetRules` are typed in the confirmed pre-release schema per [DR-C-002](../15-step-c-intent-simulation.md), superseding the earlier opaque-object proposal.
 
 ### 3.8 Checkpoint, Consequence и Hint
 
@@ -198,7 +198,7 @@
   "sceneId": null,
   "lastEventSequence": 40,
   "rulesetVersion": "fable-0.1",
-  "seedState": { "algorithm": "server-defined", "state": "opaque" },
+  "seedState": { "algorithm": "xoshiro128**", "algorithmVersion": "fable.rng.v1", "rootSeed": "root_seed_01" },
   "snapshotVersion": 1,
   "createdBy": "gm_01"
 }
@@ -214,7 +214,7 @@ Snapshot не является player DTO и выдаётся только GM/re
 
 Нужны отдельные discriminated DTO:
 
-- `TVSceneProjection`: public cells/obstacles, public entity positions, allowed HP, public status subset, telegraph icon/timer/red area, public events;
+- `TVSceneProjection`: public cells/obstacles, public entity positions, allowed HP, public status subset, telegraph icon/timer and target cell/area only when visibility/reveal policy explicitly approves it, public events;
 - `PlayerSceneProjection`: TV-safe fields плюс own hero full allowed state, own hand, defense slot, own stamina/HP, available targets, private hints;
 - `GMSceneProjection`: full authorized runtime state, exact intents/targets, all decks/discards, seed, audit and lore;
 - `AIContextPacket`: explicit allow-listed packet, не generic `GMSceneProjection`.

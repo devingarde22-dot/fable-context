@@ -109,10 +109,10 @@ type EventProjection<T> = {
 | `status.refreshed` | `targetId`, `statusKey`, public expiry projection, `layerId` | same as status.applied | Не складывать duration/potency молча. |
 | `status.expired` | `targetId`, `statusKey`, `layerId`, public reason | public subset/owner/GM | Exact removal diagnostics GM/audit. |
 | `mode.changed` | `heroId`, `from`, `to` | owner + GM; safe public summary if needed | Не выдаёт состав filtered deck. |
-| `intent.started` | `intentId`, `enemyId`, public icon/timer/target cell or area | TV + all players public telegraph; GM full | Exact targetId/conditions hidden unless explicitly revealed. |
+| `intent.started` | `intentId`, `enemyId`, public icon/timer; target cell/area only if visibility/reveal policy explicitly approves | TV + players receive only approved public telegraph; GM full | Exact targetId/conditions hidden unless explicitly revealed. |
 | `intent.cancelled` | `intentId`, `enemyId`, public cancellation summary | public telegraph removal; GM reason | `reason` must be redacted for players per INTENT-005/VIS. |
 | `intent.resolved` | `intentId`, `enemyId`, public effect summary, result refs | public result + GM exact | Damage/status/movement produce their own events in deterministic order. |
-| `intent.target_selected` | `intentId`, public target cell if telegraphed | public only when already public; GM exact | Do not reveal hidden target selection or tie-break. |
+| `intent.target_selected` | exact selection payload, including target cell | GM/audit only; separate public projection may include target cell only after visibility/reveal approval | Do not expose exact target identity, policy, seed or tie-break. |
 | `hint.sent` | target-specific `hintId`, text, vibration | target player + GM/audit only | Other clients receive no placeholder event. |
 | `scene.ended` | `sceneId`, outcome/status | public summary + GM | Exact diagnostic/audit GM. |
 | `expedition.ended` | `outcome`, reward lock/public result, consequence ref | public safe summary + GM | `retreat`/`defeat` lock rewards per MAP-003/004. |
@@ -179,7 +179,7 @@ Replay должен начинаться с checkpoint snapshot и примен�
 
 `checkpoints.last_event_sequence`, `ruleset_version` и `seed_state` уже предусмотрены database contract и должны быть источником baseline для replay. `sceneRevision` восстанавливается из snapshot, затем после rollback увеличивается согласно SAVE-002/system contract; старые события не переписываются и не удаляются. После rollback дальнейшая история должна иметь новые `serverSequence` и `replay.origin = "rollback"`; повторное применение старого requestId не должно выдать награду или повторить mutation.
 
-Для случайного выбора цели по INTENT-006 seed должен храниться на событии, которое использовало tie-break. Для детерминированного продолжения после checkpoint нужен также RNG state (или эквивалентный фиксированный seed/counter), иначе replay может совпасть на текущем событии, но разойтись на следующем случайном выборе. Формат RNG state и алгоритм пока не закреплены — `OPEN_QUESTION`.
+Для случайного выбора цели по INTENT-006 seed хранится на событии, использовавшем tie-break, вместе с RNG audit sidecar. RNG algorithm, version, UTF-8 fork serialization and purpose-scoped SHA-256 derivation are fixed by [DR-C-002](../15-step-c-intent-simulation.md); random forks are stateless and deterministic from their recorded input, so this is no longer an open question for Step C intents. Persistence/checkpoint storage remains outside the current increment.
 
 ## 4. Affected Rule IDs
 
@@ -232,7 +232,7 @@ DB использует `type`, `actor_user_id`, `id`; contract использу
 
 ### C-08 — `seed` недостаточен для полного replay
 
-Документы требуют fixed seed, а checkpoint хранит `seed_state`, но envelope содержит только optional single string seed. **Решение:** сохранять event-local seed для каждой random operation плюс checkpoint RNG state/algorithm metadata. Формат state — `OPEN_QUESTION`, не выдумывать алгоритм.
+Документы требуют fixed seed, а checkpoint хранит `seed_state`, но envelope содержит только optional single string seed. **Решение для Step C intents (DR-C-002):** journal event-local seed reference and audit sidecar with algorithm version, fork input, and before/after state; replay applies recorded outcomes and does not rerun selection. Persistent checkpoint encoding remains future persistence scope.
 
 ### C-09 — checkpoint/rollback notifications и visibility
 
@@ -244,7 +244,7 @@ System contract говорит о filtered snapshot, visibility matrix запр�
 
 ## 6. Open questions
 
-1. **OPEN_QUESTION:** какой точный RNG algorithm/state format используется для fixed-seed replay? Нужен ADR и golden replay test.
+1. **RESOLVED (Step C, DR-C-002):** fixed-seed intent replay uses xoshiro128** `fable.rng.v1`, canonical UTF-8 fork input, SHA-256, and golden transcript coverage.
 2. **RESOLVED (Step C, DR-C-001/C-003):** `sceneRevision` увеличивается один раз на accepted batch, если он содержит gameplay mutation; `serverSequence/eventIndex` задают event order. Rejected commands не изменяют gameplay state, revision или journal.
 3. **OPEN_QUESTION:** canonical event name для personal mode — `mode.changed` или `scene.mode_changed`; рекомендация — `mode.changed`.
 4. **OPEN_QUESTION:** являются ли spawn events частью gameplay domain или только текущим demo transport; определить новый Rule ID до их journal persistence.
@@ -306,8 +306,8 @@ System contract говорит о filtered snapshot, visibility matrix запр�
 8. `/home/ubuntu/lilovaya-gar/dev/client/room-client.ts` — принимать typed projections/sequence, не рассчитывать state, обрабатывать reconnect и safe rejection/event filtering.
 9. `packages/contracts/event-payloads/*.schema.json` или эквивалентный typed contract module — отдельные payload definitions для canonical event types (новая директория/файлы).
 10. `packages/rules/src/journal/`, `packages/rules/src/replay/`, `packages/rules/tests/` — Core Engine event/journal/replay implementation and tests per DR-C-001; contract and visibility tests remain in their owning packages.
-11. `docs/02-confirmed-rules.md` — только после ADR для unresolved naming/pause/spawn/RNG вопросов; этот review сам CONFIRMED rules не переписывает.
+11. `docs/02-confirmed-rules.md` — только после ADR для remaining naming/pause/spawn questions; RNG/intent decisions are now in DR-C-002.
 
 ## 9. Implementation boundary
 
-Минимальная безопасная последовательность работ: сначала зафиксировать OPEN_QUESTION по sequence/revision/RNG и canonical names; затем расширить event schema и payload schemas; потом реализовать headless journal adapter и golden ordering/replay tests; затем подключить DB transaction и role-filtered broadcast; после этого обновить client handlers. Нельзя сначала расширять UI или отправлять полный event, потому что это создаст риск утечки и закрепит неправильный replay contract.
+Эта последовательность — историческая review recommendation. DR-C-001/002 уже фиксируют package boundary, typed intent schema and versioned intent RNG; Step C headless journal/replay and golden tests exist. Любой последующий server/persistence/UI increment всё ещё требует закрыть относящиеся к нему naming/pause/spawn decisions, role-filtered projection schemas and transactional delivery. Нельзя отправлять full authoritative events напрямую клиентам.

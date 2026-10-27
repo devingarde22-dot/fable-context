@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createRuntimeState } from "../src/engine/createRuntimeState.js";
 import { assertRuntimeInvariants } from "../src/engine/invariants.js";
-import { testConfig } from "./createTestEngine.js";
+import { enemy, hero, testConfig } from "./createTestEngine.js";
 
 describe("runtime invariants", () => {
   it("accepts a canonical runtime state", () => {
@@ -20,8 +20,8 @@ describe("runtime invariants", () => {
   it("rejects overlapping fixture entities and entities placed on blocked terrain", () => {
     expect(() => createRuntimeState(testConfig({
       entities: [
-        { id: "a", kind: "hero", faction: "party", position: { x: 1, y: 1 }, aliveState: "active", mode: "movement" },
-        { id: "b", kind: "enemy", faction: "enemy", position: { x: 1, y: 1 }, aliveState: "active", mode: null },
+        hero("a", 1, 1),
+        enemy("b", 1, 1),
       ],
     }))).toThrow(/overlap/);
     expect(() => createRuntimeState(testConfig({

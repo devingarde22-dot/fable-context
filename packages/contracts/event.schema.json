@@ -1184,6 +1184,162 @@
           }
         },
         "eventType": {
+          "const": "intent.target_selected"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "activeIntentId",
+            "enemyId",
+            "targetEntityId",
+            "targetCell",
+            "selectionPolicy",
+            "tieBreak",
+            "seedRef"
+          ],
+          "properties": {
+            "activeIntentId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "enemyId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "targetEntityId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "targetCell": {
+              "$ref": "#/$defs/cell"
+            },
+            "selectionPolicy": {
+              "type": "string",
+              "enum": [
+                "nearest_player",
+                "current_target",
+                "highest_threat",
+                "nearest_visible_player",
+                "lowest_ally_hp_percentage"
+              ]
+            },
+            "tieBreak": {
+              "type": "string",
+              "enum": [
+                "seeded_random",
+                "single_candidate"
+              ]
+            },
+            "seedRef": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
           "const": "intent.cancelled"
         },
         "payload": {
@@ -1207,7 +1363,8 @@
                 "path_blocked",
                 "los_blocked",
                 "state_locked",
-                "no_longer_possible"
+                "no_longer_possible",
+                "no_valid_fallback"
               ]
             }
           }
@@ -2002,7 +2159,8 @@
         },
         "durationMs": {
           "type": "integer",
-          "minimum": 3000
+          "minimum": 3000,
+          "multipleOf": 50
         },
         "remainingMs": {
           "type": "integer",

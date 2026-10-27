@@ -341,33 +341,45 @@ Seed разрешён только в authoritative/GM/audit fixture. В transpo
 
 ### 2.7 Intent fixtures
 
-Valid baseline для `intent.schema.json`:
+Исторический proposal ниже superseded: текущий pre-release contract зафиксирован в [`packages/contracts/intent.schema.json`](../../packages/contracts/intent.schema.json) и [DR-C-002](../15-step-c-intent-simulation.md). Актуальный typed fixture для `ranged_shot`:
 
 ```json
 {
+  "kind": "intent_template",
   "key": "ranged_shot",
+  "version": 1,
+  "status": "confirmed",
   "icon": "ranged_attack",
   "durationMs": 10000,
-  "conditions": { "requiresLineOfSight": true, "rangeMin": 2, "rangeMax": 7 },
-  "effect": { "kind": "raw_damage", "amount": 110 },
-  "fallbackKeys": ["reposition", "hold_position"],
-  "visibility": "public",
-  "targetRules": { "kind": "visible_player" },
-  "area": null
+  "conditions": { "preconditions": ["target_available"] },
+  "effect": { "handler": "ranged_shot", "parameters": { "rawDamage": 110 } },
+  "targetRules": {
+    "policy": "highest_threat",
+    "fallbackPolicies": ["nearest_visible_player"],
+    "range": { "minInclusive": 2, "maxInclusive": 7 },
+    "lineOfSight": "required",
+    "filters": {
+      "factions": ["party"],
+      "aliveStates": ["active"],
+      "requiredStatuses": [],
+      "excludedStatuses": []
+    }
+  },
+  "fallbackKeys": ["hold_position"],
+  "visibility": "public"
 }
 ```
 
 Базовые invalid fixtures:
 
-- `durationMs: 2999` → schema reject, соответствует минимальному INTENT-003;
+- `durationMs: 2999` or `durationMs: 3025` → schema reject: minimum 3000 ms and multiples of 50;
 - `visibility: "player_private"` → schema reject, поскольку intent schema разрешает только public/conditional/gm_only;
 - `key: "Ranged Shot"` → schema reject по key pattern;
-- отсутствует `fallbackKeys` → schema reject;
-- `area: "not-an-object"` → schema reject;
-- `durationMs: 6000` с условием, которое делает intent impossible → schema valid, затем domain/intent simulation fixture проверяет INTENT-005: `intent.cancelled`, reason только GM, новый допустимый intent;
-- equal targets с тем же seed → два replay fixture дают один и тот же target по INTENT-006.
+- отсутствует typed `conditions`, `effect`, `targetRules` or `fallbackKeys` → schema reject;
+- an otherwise schema-valid intent with impossible preconditions is rejected at runtime, does not partially mutate gameplay state, and follows its ordered fallback list;
+- equal-ranked targets with the same seed produce the same target and exact journal replay result.
 
-`conditions`, `effect` и `targetRules` остаются opaque object до отдельного утверждения content DSL. Нельзя в этом review придумывать обязательные keys для этих объектов.
+`conditions`, `effect` и `targetRules` are typed structures in the confirmed pre-release contract; do not restore the obsolete opaque-object proposal.
 
 ### 2.8 Visibility fixtures
 
@@ -611,7 +623,7 @@ Definition of Done для этой темы: все F-01—F-26 имеют fixtu
 - **OQ-04:** Какой exact payload/event semantics у `gm.pause_scene`, включая timer, input window, intent resolution, event name и reconnect?
 - **OQ-05:** Где хранится versioned scene visibility policy для условного public HP/status и rounded stamina? Без этого acceptance может проверить только baseline deny paths, но не product-specific reveal.
 - **OQ-06:** Какой canonical schema/version negotiation формат принимается (`protocolVersion`, `schemaVersion`, `commandVersion`, snapshot schema)?
-- **OQ-07:** Нужно ли формализовать content DSL для `intent.conditions/effect/targetRules`, или оставить их opaque object в первом slice?
+- **RESOLVED (DR-C-002):** `intent.conditions/effect/targetRules` are typed in the canonical pre-release `intent.schema.json`; do not treat them as opaque objects.
 - **OQ-08:** Какие fields входят в exact GM event payload для raw/final damage и formula version? Current docs требуют GM visibility, но не закрепляют полный schema.
 - **OQ-09:** Является ли public HP в Quarantine Gates включённым сценарием policy или только условной возможностью? Fixtures должны не угадывать.
 - **OQ-10:** Какой предельный размер `gm.send_hint.text`? Commands review помечает bound как OPEN_QUESTION; fixture не должен закреплять произвольный лимит как gameplay rule.
@@ -645,7 +657,7 @@ Definition of Done для этой темы: все F-01—F-26 имеют fixtu
 
 - `/home/ubuntu/lilovaya-gar/packages/contracts/command.schema.json` — discriminated payloads, bounded fields, возможно version metadata;
 - `/home/ubuntu/lilovaya-gar/packages/contracts/event.schema.json` — typed event payloads, policy boundary и решение по nullable `sceneId`;
-- `/home/ubuntu/lilovaya-gar/packages/contracts/intent.schema.json` — только если утверждается content DSL; иначе оставить opaque objects;
+- `packages/contracts/intent.schema.json` — typed `conditions`, `effect`, `targetRules` and `durationMs` contract, updated for DR-C-002;
 - `/home/ubuntu/lilovaya-gar/packages/contracts/visibility.schema.json` — возможно path/policy binding, если это будет принято вместо отдельного registry;
 - новые schemas под `/home/ubuntu/lilovaya-gar/packages/contracts/` для command payloads, event payloads, projections и normalized errors;
 - новый fixture tree под `/home/ubuntu/lilovaya-gar/packages/contracts/fixtures/`.

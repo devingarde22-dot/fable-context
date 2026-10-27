@@ -1,11 +1,13 @@
 import { TickClock } from "../clock/TickClock.js";
 import { EventJournal } from "../journal/EventJournal.js";
 import { stateHash } from "../replay/stateHash.js";
-import { replayEvents } from "../replay/replay.js";
+import { replayEvents, replayJournalRecords } from "../replay/replay.js";
 import { closedWindowIdAtTick, windowIdAtTick } from "../scheduler/InputWindow.js";
 import { orderCommands, phaseOrder, type SchedulerPhase } from "../scheduler/orderCommands.js";
 import { validateMove } from "../movement/playerMove.js";
 import { cellIndex } from "../grid/Grid.js";
+import { activateScene, resolveDueIntents } from "../intents/intentSystem.js";
+import { groupEvents, type PendingJournalEvent } from "../intents/events.js";
 import { assertRuntimeInvariants } from "./invariants.js";
 import { cloneRuntimeState, createRuntimeState, snapshotState } from "./createRuntimeState.js";
 import type {
@@ -13,6 +15,7 @@ import type {
   EngineErrorCode,
   FinalCommandResult,
   InternalCommand,
+  JournalRecord,
   RuntimeSnapshot,
   RuntimeState,
   SimulationEngineConfig,
@@ -27,11 +30,18 @@ export interface SimulationEngine {
   advanceTicks(count: number): TickResult[];
   snapshot(): RuntimeSnapshot;
   events(): readonly DomainEvent[];
+  journalRecords(): readonly JournalRecord[];
   replay(events: readonly DomainEvent[]): RuntimeSnapshot;
+  replayJournal(): RuntimeSnapshot;
 }
 
 export type SimulationEngineOptions = {
   onPhase?: (phase: SchedulerPhase, tick: number) => void;
+};
+
+type AppliedMove = {
+  result: FinalCommandResult;
+  pendingEvent?: PendingJournalEvent;
 };
 
 export class HeadlessSimulationEngine implements SimulationEngine {
@@ -47,6 +57,12 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     this.initialState = cloneRuntimeState(this.runtime);
     this.clock = new TickClock(this.runtime.serverTick);
     this.options = options;
+
+    const initialPending = activateScene(this.runtime);
+    const initialBatch = groupEvents(this.runtime, initialPending);
+    this.journal.appendBatch(initialBatch.events, initialBatch.auditByEventId);
+    this.journal.appendTick(this.runtime.serverTick, this.runtime.sceneRevision, this.runtime.scene.inputWindow);
+    assertRuntimeInvariants(this.runtime);
   }
 
   get state(): Readonly<RuntimeState> {
@@ -59,12 +75,12 @@ export class HeadlessSimulationEngine implements SimulationEngine {
 
     const rejected = (code: EngineErrorCode): SubmitResult => {
       const result: SubmitResult = { status: "rejected", requestId: command.requestId, code, sceneRevision: this.runtime.sceneRevision };
-      if (command.requestId) this.requestResults.set(command.requestId, result);
+      if (typeof command?.requestId === "string" && command.requestId.length > 0) this.requestResults.set(command.requestId, result);
       return result;
     };
 
     if (!this.isValidCommand(command)) return rejected("SCHEMA_INVALID");
-    if (command.role !== "player" || command.sessionId !== this.runtime.sessionId) return rejected("AUTH_FORBIDDEN");
+    if (this.runtime.phase !== "active" || command.role !== "player" || command.sessionId !== this.runtime.sessionId) return rejected("AUTH_FORBIDDEN");
     const heroId = this.runtime.heroIdByActorId.get(command.actorId);
     const hero = heroId ? this.runtime.entities.get(heroId) : undefined;
     if (!hero || hero.kind !== "hero" || hero.aliveState !== "active") return rejected("AUTH_FORBIDDEN");
@@ -76,63 +92,53 @@ export class HeadlessSimulationEngine implements SimulationEngine {
       this.runtime.scene.inputWindow = { windowId, commands: [] };
     }
     this.runtime.scene.inputWindow.commands.push(cloneCommand(command));
+    this.journal.appendInputWindow(this.runtime.serverTick, this.runtime.scene.inputWindow);
     const result: SubmitResult = { status: "queued", requestId: command.requestId, windowId };
     this.requestResults.set(command.requestId, result);
     return result;
   }
 
   advanceOneTick(): TickResult {
-    const previousWindowCommands = this.runtime.scene.inputWindow.commands;
+    const commandsInOpenWindow = this.runtime.scene.inputWindow.commands;
     this.runtime.serverTick = this.clock.advance();
     const closedWindowId = closedWindowIdAtTick(this.runtime.serverTick);
-    const emitted: DomainEvent[] = [];
+    const pending: PendingJournalEvent[] = [];
     const commandResults: FinalCommandResult[] = [];
+    const orderedCommands = closedWindowId === null ? [] : orderCommands(commandsInOpenWindow);
+    const reservations = new Set<number>();
 
     if (closedWindowId !== null) {
-      const commands = previousWindowCommands;
       this.runtime.scene.inputWindow = { windowId: windowIdAtTick(this.runtime.serverTick), commands: [] };
-      const ordered = orderCommands(commands);
-      let batchMutated = false;
-      const tentative: Array<{ command: InternalCommand; event: Omit<DomainEvent, "sceneRevision" | "eventIndex" | "eventGroupId" | "serverSequence" | "eventId"> }> = [];
-      const reservations = new Set<number>();
+    }
 
-      for (const phase of phaseOrder()) {
-        this.options.onPhase?.(phase, this.runtime.serverTick);
-        if (phase !== "players") continue;
-        for (const command of ordered) {
-          const result = this.applyMove(command, reservations);
-          commandResults.push(result.result);
-          if (!result.event) continue;
-          batchMutated = true;
-          tentative.push({ command, event: result.event });
-          reservations.add(cellIndex(result.event.payload.to));
-        }
-      }
-
-      if (batchMutated) {
-        this.runtime.sceneRevision += 1;
-        const revision = this.runtime.sceneRevision;
-        const groupId = `scene-${revision}`;
-        for (let index = 0; index < tentative.length; index += 1) {
-          const item = tentative[index];
-          if (!item) continue;
-          const sequence = this.runtime.nextServerSequence;
-          this.runtime.nextServerSequence += 1;
-          emitted.push({
-            ...item.event,
-            eventId: `evt-${sequence}`,
-            eventGroupId: groupId,
-            eventIndex: index,
-            serverSequence: sequence,
-            sceneRevision: revision,
-          });
-          const commandResult = commandResults.find((result) => result.requestId === item.command.requestId);
-          if (commandResult?.status === "accepted") {
-            commandResult.eventIds = [`evt-${sequence}`];
-            commandResult.sceneRevision = revision;
+    for (const phase of phaseOrder()) {
+      this.options.onPhase?.(phase, this.runtime.serverTick);
+      if (phase === "players" && closedWindowId !== null) {
+        for (const command of orderedCommands) {
+          const applied = this.applyMove(command, reservations);
+          commandResults.push(applied.result);
+          if (!applied.pendingEvent) continue;
+          pending.push(applied.pendingEvent);
+          if (applied.pendingEvent.event.eventType === "scene.entity_moved") {
+            reservations.add(cellIndex(applied.pendingEvent.event.payload.to));
           }
         }
-        this.journal.appendBatch(emitted);
+      } else if (phase === "enemies") {
+        pending.push(...resolveDueIntents(this.runtime, this.runtime.serverTick));
+      }
+      // Environment has no active effects in this increment; its phase remains explicit and ordered.
+    }
+
+    const committed = groupEvents(this.runtime, pending);
+    this.journal.appendBatch(committed.events, committed.auditByEventId);
+    this.journal.appendTick(this.runtime.serverTick, this.runtime.sceneRevision, this.runtime.scene.inputWindow);
+
+    for (const result of commandResults) {
+      if (result.status !== "accepted") continue;
+      const requestEvent = committed.events.find((event) => event.causedByRequestId === result.requestId);
+      if (requestEvent) {
+        result.eventIds = [requestEvent.eventId];
+        result.sceneRevision = requestEvent.sceneRevision;
       }
     }
 
@@ -140,7 +146,7 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     return {
       serverTick: this.runtime.serverTick,
       closedWindowId,
-      events: emitted.map((event) => ({ ...event, payload: { ...event.payload, from: { ...event.payload.from }, to: { ...event.payload.to } } })),
+      events: committed.events.map((event) => structuredClone(event)),
       commandResults,
       sceneRevision: this.runtime.sceneRevision,
       stateHash: stateHash(this.runtime),
@@ -162,17 +168,22 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     return this.journal.events();
   }
 
+  journalRecords(): readonly JournalRecord[] {
+    return this.journal.records();
+  }
+
   replay(events: readonly DomainEvent[]): RuntimeSnapshot {
     return replayEvents(this.initialState, events);
   }
 
-  private applyMove(
-    command: InternalCommand,
-    reservations: ReadonlySet<number>,
-  ): { result: FinalCommandResult; event?: Omit<DomainEvent, "sceneRevision" | "eventIndex" | "eventGroupId" | "serverSequence" | "eventId"> } {
+  replayJournal(): RuntimeSnapshot {
+    return replayJournalRecords(this.initialState, this.journal.records());
+  }
+
+  private applyMove(command: InternalCommand, reservations: ReadonlySet<number>): AppliedMove {
     const heroId = this.runtime.heroIdByActorId.get(command.actorId);
     const hero = heroId ? this.runtime.entities.get(heroId) : undefined;
-    const reject = (code: EngineErrorCode): { result: FinalCommandResult } => ({
+    const reject = (code: EngineErrorCode): AppliedMove => ({
       result: { requestId: command.requestId, status: "rejected", code, sceneRevision: this.runtime.sceneRevision },
     });
     if (!hero || hero.kind !== "hero" || hero.aliveState !== "active") return reject("AUTH_FORBIDDEN");
@@ -189,23 +200,24 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     fromCell.occupantId = null;
     toCell.occupantId = hero.id;
     hero.position = { ...validated.destination };
-    const event: Omit<DomainEvent, "sceneRevision" | "eventIndex" | "eventGroupId" | "serverSequence" | "eventId"> = {
-      protocolVersion: "fable.protocol.v1",
-      schemaVersion: 1,
-      eventType: "scene.entity_moved",
-      eventVersion: 1,
-      campaignId: this.runtime.campaignId,
-      sessionId: this.runtime.sessionId,
-      sceneId: this.runtime.scene.id,
-      serverTick: this.runtime.serverTick,
-      causedByRequestId: command.requestId,
-      actorId: command.actorId,
-      replay: null,
-      payload: { entityId: hero.id, from, to: { ...validated.destination } },
-    };
     return {
       result: { requestId: command.requestId, status: "accepted", eventIds: [], sceneRevision: this.runtime.sceneRevision + 1 },
-      event,
+      pendingEvent: {
+        event: {
+          protocolVersion: "fable.protocol.v1",
+          schemaVersion: 1,
+          eventType: "scene.entity_moved",
+          eventVersion: 1,
+          campaignId: this.runtime.campaignId,
+          sessionId: this.runtime.sessionId,
+          sceneId: this.runtime.scene.id,
+          serverTick: this.runtime.serverTick,
+          causedByRequestId: command.requestId,
+          actorId: command.actorId,
+          replay: null,
+          payload: { entityId: hero.id, from, to: { ...validated.destination } },
+        },
+      },
     };
   }
 

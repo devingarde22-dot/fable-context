@@ -106,9 +106,9 @@ GM запускает обязательную сцену. TV показывае
 
 ### Шаг 4 — первый intent
 
-Преследователь начинает `move_close`, стрелок — `ranged_shot`, Погаситель — `ally_guard` или `bind` по текущему фильтру целей. TV показывает иконки и кольцевые таймеры. Дальняя цель стрелка подсвечивается красным.
+Преследователь начинает `move_close`, стрелок — `ranged_shot`, Погаситель — `ally_guard` или `bind` по текущему фильтру целей. TV показывает иконки и кольцевые таймеры. Дальняя цель стрелка подсвечивается красным только если target cell отдельно разрешена versioned scene visibility/reveal policy; иначе TV получает лишь иконку/таймер.
 
-**Проверки:** public telegraph доступен игрокам; GM видит exact target и формулу; seed записан.
+**Проверки:** public telegraph exposes only visibility-approved fields; GM видит exact target и формулу; seed записан в authoritative audit.
 
 ### Шаг 5 — вход в бой
 

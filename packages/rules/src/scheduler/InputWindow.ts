@@ -16,7 +16,11 @@ export function closedWindowIdAtTick(tick: number): number | null {
 export function sortInputWindow(commands: readonly InternalCommand[]): InternalCommand[] {
   return [...commands].sort((a, b) =>
     a.serverReceiveSequence - b.serverReceiveSequence ||
-    a.actorId.localeCompare(b.actorId) ||
-    a.requestId.localeCompare(b.requestId),
+    compareText(a.actorId, b.actorId) ||
+    compareText(a.requestId, b.requestId),
   );
+}
+
+function compareText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }

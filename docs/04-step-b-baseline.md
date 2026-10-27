@@ -176,7 +176,7 @@ Every event registry row defines payload schema, eventVersion, scope, causality 
 
 ### 3.3 Visibility registry
 
-- `tv`: public cells/obstacles/positions, scenario-permitted HP/status subset, public intent icon/timer/target cell/area, public outcomes.
+- `tv`: public cells/obstacles/positions, scenario-permitted HP/status subset, public intent icon/timer; target cell/area only when separately approved by visibility/reveal policy; public outcomes.
 - `player`: TV-safe data plus own HP/stamina/mode/status layers, own hand/defense slot, available targets, movement directions, addressed hints.
 - `gm`: full authorized typed projection: exact intents/targets, decks, formulas, seeds, hidden lore, audit and proposals; never raw credentials/internal transport secrets.
 - `ai_context`: explicit allow-list only; never generic GM projection.
@@ -218,10 +218,9 @@ Every event registry row defines payload schema, eventVersion, scope, causality 
   "protocolVersion": "fable.protocol.v1",
   "schemaVersion": 1,
   "eventId": "evt_1001",
-  "eventType": "intent.started",
   "eventVersion": 1,
   "campaignId": "camp_01",
-  "sessionId": "sess_01",
+  "sessionId": "exp_01",
   "sceneId": "scene_01",
   "sceneRevision": 42,
   "serverTick": 9000,
@@ -229,24 +228,20 @@ Every event registry row defines payload schema, eventVersion, scope, causality 
   "eventGroupId": "grp_42",
   "eventIndex": 0,
   "causedByRequestId": null,
-  "causationEventId": null,
   "actorId": "enemy_03",
-  "rulesetVersion": "fable.ruleset.0.1",
-  "contentVersion": "slice.quarantine-gates.v1",
-  "replay": {"origin":"live","baseCheckpointId":null,"baseSequence":null},
+  "replay": {"seedRef":"c74a7436c31ba77a0e781773bd2ec9352fb0397eec4ccbe86bbf2ef3d39e1692"},
+  "eventType": "intent.started",
   "payload": {
-    "intentId": "intent_01",
     "enemyId": "enemy_03",
-    "publicIntent": {
-      "icon": "ranged_attack",
-      "timer": {"startedAtTick":9000,"resolvesAtTick":9200,"durationMs":10000,"remainingMs":10000,"paused":false},
-      "targetCell": {"x":1,"y":7}
-    }
+    "templateKey": "ranged_shot",
+    "activeIntentId": "scene_01:enemy_03:9000:ranged_shot",
+    "timer": {"startedAtTick":9000,"resolvesAtTick":9200,"durationMs":10000,"remainingMs":10000,"paused":false},
+    "icon": "ranged_attack",
+    "publicTargetCell": {"x":1,"y":7}
   }
 }
 ```
-
-Authoritative journal may additionally carry `seed` and opaque RNG state; role-filtered output removes forbidden fields before serialization.
+The example assumes the visibility/reveal policy explicitly approved this public telegraph target cell; otherwise omit `publicTargetCell`. `intent.target_selected` is a separate GM/audit event. The authoritative in-memory journal carries versioned RNG audit sidecar records in addition to the wire envelope; role-filtered output removes forbidden fields before serialization.
 
 ### 4.3 Snapshot/projection envelope
 
@@ -375,8 +370,8 @@ Existing Rule IDs remain normative. The following technical IDs are added by thi
 
 ## 10. Remaining questions (future scope only)
 
-1. **RNG algorithm/state encoding:** choose a concrete algorithm and opaque state serialization for production replay across runtimes; first slice may use the existing server-defined fixed-seed adapter and must pin it in its implementation fixture.
-2. **Intent/Card effect DSL:** define strict nested schemas for arbitrary `conditions`, `effect`, `rawEffect` and `statusEffect` beyond the current versioned opaque content blob; not required for the fixed slice templates.
+1. **RESOLVED for Step C intents (DR-C-002):** use versioned xoshiro128** (`fable.rng.v1`), UTF-8 canonical fork serialization, SHA-256 purpose-scoped seeds, and event-local RNG audit sidecars. This does not require a mutable global RNG stream.
+2. **PARTIALLY RESOLVED (DR-C-002):** intent `conditions`, `targetRules`, and `effect` are typed in `intent.schema.json`; broader card-effect DSL fields such as `rawEffect` and `statusEffect` remain future scope.
 3. **Production scene transfer command:** define a dedicated `gm.scene_transfer` command/event and its cross-node authorization/reward behavior; first slice only records the already-confirmed transfer capability as future/outcome integration, not a new wire command.
 
 Все остальные вопросы из шести reviews закрыты решениями выше или исключены из first-slice scope. Ни один из них не меняет подтверждённые gameplay semantics.
