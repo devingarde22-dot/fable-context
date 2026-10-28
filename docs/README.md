@@ -4,23 +4,23 @@
 
 ## Сначала: выбери маршрут чтения
 
-1. **[Project Reading Guide & Context Router](./00-reading-guide.md)** — правильный порядок знакомства с идеей Fable, source-of-truth, быстрые ссылки по типам работ и шаблон выдачи задачи разработчику.
-2. [Current State & Architecture](./26-current-state-and-architecture.md) — актуальный milestone, подтверждённые границы, source-of-truth, расхождения и открытые архитектурные вопросы.
-2. [Product Constitution](./00-product-constitution.md) — назначение Fable и неизменяемые принципы.
+Начинай с **[Project Reading Guide & Context Router](./00-reading-guide.md)** — он содержит правильную последовательность знакомства с продуктом, краткую карту источников и ссылки по типам задач.
+
+Для обычного ознакомления с нормативным контекстом используй такой порядок:
+1. [Current State & Architecture](./26-current-state-and-architecture.md) — что реализовано и где границы текущего среза.
+2. [Product Constitution](./00-product-constitution.md) — зачем существует Fable и какие принципы нельзя случайно сломать.
 3. [Glossary](./01-glossary.md) — единая терминология.
-4. [Confirmed Rules](./02-confirmed-rules.md) — нормативные игровые правила.
-5. [Step B Baseline](./04-step-b-baseline.md) — подтверждённые wire-contract решения.
-6. [System Contracts](./03-system-contracts.md) — команды, события, state machine, visibility и persistence.
-7. [Vertical Slice](./05-vertical-slice.md) и [Visibility Matrix](./04-visibility-matrix.md) — acceptance и field-level доступ.
-8. [QA & Acceptance](./07-qa-and-acceptance.md) — golden scenarios, replay, leakage и Definition of Done.
-9. [Step C — Core Engine](./14-step-c-core-engine.md) и синхронизированные Decision Records: [Intents](./15-step-c-intent-simulation.md), [Retreat](./16-step-c-retreat-resolution.md), [HP/Damage](./18-step-c-hp-damage-resolution.md), [Stamina](./19-step-c-stamina-regeneration.md), [Card Play](./20-step-c-card-play.md), [Deck Cycle](./21-step-c-deck-cycle.md), [Immobilized](./22-step-c-status-immobilized.md), [Ally Guard](./23-step-c-ally-guard.md), [Increment 10 / DR-C-010](./25-step-c-increment-10-full-headless-slice.md). Документ [24](./24-step-c-increment-10-proposal.md) — SUPERSEDED proposal, не реализовывать.
-10. [AI Developer Guide](./10-ai-developer-guide.md) и [AI Task Starter](./13-ai-task-starter.md) — протокол выполнения конкретной задачи.
+4. [Vertical Slice](./05-vertical-slice.md) — конкретный игровой путь.
+5. [Confirmed Rules](./02-confirmed-rules.md), [Step B Baseline](./04-step-b-baseline.md), [System Contracts](./03-system-contracts.md) и [Visibility Matrix](./04-visibility-matrix.md) — нормативные игровые и протокольные правила.
+6. [QA & Acceptance](./07-qa-and-acceptance.md) — проверяемое ожидаемое поведение.
+7. [Step C — Core Engine](./14-step-c-core-engine.md) и только нужный mechanic Decision Record: [Intents](./15-step-c-intent-simulation.md), [Retreat](./16-step-c-retreat-resolution.md), [HP/Damage](./18-step-c-hp-damage-resolution.md), [Stamina](./19-step-c-stamina-regeneration.md), [Card Play](./20-step-c-card-play.md), [Deck Cycle](./21-step-c-deck-cycle.md), [Immobilized](./22-step-c-status-immobilized.md), [Ally Guard](./23-step-c-ally-guard.md), [Increment 10 / DR-C-010](./25-step-c-increment-10-full-headless-slice.md). Документ [24](./24-step-c-increment-10-proposal.md) — SUPERSEDED, не реализовывать.
+8. [AI Developer Guide](./10-ai-developer-guide.md) и [AI Task Starter](./13-ai-task-starter.md) — способ ставить и выполнять отдельные технические задачи.
 
 Первичный архитектурный аудит: [Conceptual Architecture Review](./27-conceptual-architecture-review.md) — подтверждённые расхождения и приоритетные интеграционные блокеры; это не замена проверке кода и тестов.
 
 Предлагаемая граница сервера: [Server Adapter Contract Proposal](./28-server-adapter-contract-proposal.md) — роли, команды, идемпотентность, rollback, проекции и критерии интеграции; документ пока является proposal, не принятым контрактом.
 
-Углублённые source-аудиты: [Simulation Lifecycle Audit](./29-simulation-lifecycle-audit.md) — request lifecycle, rollback и runtime validation; [Combat Targeting Audit](./30-combat-targeting-audit.md) — ошибка приоритизации целей AI. [World Map, City, NPC Dialogue & Transitions](./31-world-map-city-dialogue-transitions.md) — концептуальное предложение для мирового цикла и переходов между активностями; это PROPOSAL, не утверждённый gameplay-контракт. Проверки аудитов основаны на чтении исходников; тесты и сборка не запускались.
+Углублённые source-аудиты: [Simulation Lifecycle Audit](./29-simulation-lifecycle-audit.md) — request lifecycle, rollback и runtime validation; [Combat Targeting Audit](./30-combat-targeting-audit.md) — ошибка приоритизации целей AI. [World Map, City, NPC Dialogue & Transitions](./31-world-map-city-dialogue-transitions.md) — начальный концепт мирового цикла; [32–37](./32-owner-decisions-world-interaction-loop.md) — решения владельца, переходный контракт, модель контента, приёмка, протокол и defaults; [38](./38-hero-state-lifecycle-and-battle-boundary-proposal.md) — жизненный цикл состояния героя; [39](./39-campaign-transition-failure-and-recovery-proposal.md) — сбои и восстановление. Документы 31–39 остаются UNCONFIRMED proposals, не утверждёнными gameplay-контрактами. Проверки аудитов основаны на чтении исходников; тесты и сборка не запускались.
 
 Остальные документы — Balance Sheet, API Specification, Database Schema, Programming Roadmap, Step A и Step B Reviews — используются по мере необходимости. Старые документы и proposal могут оставаться полезными как история, но их нельзя считать текущей задачей без проверки статуса.
 
