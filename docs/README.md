@@ -61,7 +61,13 @@ After implementation, require:
 - [Intent Schema](../packages/contracts/intent.schema.json)
 - [Visibility Schema](../packages/contracts/visibility.schema.json)
 
-## World interaction design
+## World interaction design — all unconfirmed proposals
 
-- [World Map, City, NPC Dialogue & Activity Transitions](./31-world-map-city-dialogue-transitions.md) — conceptual architecture proposal for the end-to-end world interaction loop.
-- [Owner Decisions: World Interaction Loop](./32-owner-decisions-world-interaction-loop.md) — records the project owner's choices and the recommended first playable scope. These choices should be promoted into confirmed rules/ADR before gameplay implementation.
+- [World Map, City, NPC Dialogue & Activity Transitions](./31-world-map-city-dialogue-transitions.md) — initial conceptual overview.
+- [Owner Decisions: World Interaction Loop](./32-owner-decisions-world-interaction-loop.md) — captures owner-provided constraints and recommended initial city interactions.
+- [Campaign Lifecycle and Transition Contract](./33-campaign-lifecycle-transition-contract-proposal.md) — state machine, transition preconditions, revisions, city recovery, scene entry, reconnect and checkpoint semantics.
+- [World Content and Dialogue Graph Model](./34-world-content-and-dialogue-graph-proposal.md) — nodes/routes/POIs/NPCs, stable dialogue IDs, pure conditions, allowlisted effects and content validation.
+- [World Interaction Acceptance and Delivery Plan](./35-world-interaction-acceptance-and-delivery-plan.md) — end-to-end golden path, detailed acceptance matrix, test layers, phases and exit gates.
+- [Campaign Command, Event and Projection Catalog](./36-campaign-command-event-catalog-proposal.md) — candidate campaign protocol operations, idempotency lifecycle, atomic commit boundaries, errors and role projections.
+
+These documents form a connected design packet and all remain UNCONFIRMED PROPOSAL. They do not change confirmed rules or current schemas. Promote only the selected rules into an ADR and versioned contracts before implementing gameplay code.
