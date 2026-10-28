@@ -180,17 +180,17 @@ Record the owner decision as a proposal until copied into confirmed rules:
 - a hero with `тяжело ранен` is not fully healed by city recovery;
 - city presence does not silently clear the debuff;
 - the existing confirmed `STATUS-003` special case remains authoritative: a heavily injured player cannot act until the end of the battle and recovers to 1 HP after the battle under current rules;
-- do not infer stamina recovery, other status cleansing, deck reset, timer reset, free resurrection, or recovery of other resources.
+- the city HP recovery handler itself does not restore stamina, reset the deck, clear unrelated statuses, reset timers, grant free resurrection, or recover other resources; battle-end cleanup is a separate mandatory boundary in Section 6.4.
 
 If HP is already max, the action may return success with no HP event (or a no-op receipt), but must not emit a fake HP mutation. Duplicate rest requests do not create duplicate meaningful state changes or duplicate checkpoint rewards.
 
 ### 6.2 Recovery order
 
 Recommended successful return-to-city transaction:
-1. confirm and commit outcome;
+1. validate and commit the terminal scene outcome. As part of this terminal transition, apply battle-end cleanup exactly once before leaving the scene (Section 6.4);
 2. apply the one-time reward/campaign consequence, if eligible under existing rules;
-3. enter the city activity;
-4. apply conditional HP recovery;
+3. enter the city activity, following the existing outcome-specific rollback/return policy;
+4. apply conditional HP recovery to the resulting authoritative city state;
 5. create the post-recovery city checkpoint;
 6. publish projections and terminal request results.
 
@@ -198,7 +198,17 @@ If a return comes from retreat/defeat/GM abort, preserve each current confirmed 
 
 ### 6.3 City is safe context, not a universal reset
 
-Only the explicitly defined HP rule is part of this proposal. City is not automatically a universal “reset everything” command. Tick-based tactical timers should not run without an active scene, but persistent/campaign time is a separate future concept. Never pause/resume scene timers by client wall-clock; if pause semantics are added, the server must own them.
+City arrival/rest is not the mechanism that clears battle runtime. Battle-only stamina, tactical deck state and battle-scoped temporary statuses are cleared immediately at the battle-end boundary described below. The city HP recovery handler is separate and must not duplicate or delay that cleanup. Tick-based tactical timers must not run without an active scene, but persistent/campaign time is a separate future concept. Never pause/resume scene timers by client wall-clock; if pause semantics are added, the server must own them.
+
+### 6.4 Battle-end cleanup (owner decision; target contract)
+
+Immediately after a terminal battle outcome has been validated and committed—and before the campaign processes subsequent city recovery/checkpoint work—discard the ended battle's tactical-only runtime:
+- **Stamina:** do not carry the spent amount or its regeneration timer out of the ended scene. The next battle initializes stamina through the existing combat-entry rules (currently baseline 3; max is still derived from the applicable rules). This is not a new city-rest stamina service.
+- **Deck:** do not carry battle-specific hand, draw/discard order, mode-excluded placement, defense-slot placement or rotation timer into another battle. Rebuild the tactical deck on the next battle from canonical persistent sources; cleanup itself must not destroy a card or invent permanent deck changes.
+- **Statuses:** remove all status layers whose explicit lifecycle scope is battle-only, regardless of whether their duration timer would have expired later. Preserve campaign-persistent statuses and consequences, including the separate `тяжело ранен` debuff. Do not classify every timed status as battle-only merely because it has a duration; its content/rule scope must be explicit.
+- **Timers/intents:** end scene-local intents, stamina regeneration and card-rotation timers. No tick or battle-only timer advances after the scene has ended.
+
+Run the cleanup for every terminal outcome (`success`, `retreat`, `defeat`, `gm_abort`) as part of the outcome/scene-end transition, exactly once. Outcome eligibility remains governed by the existing engine. If an outcome path rolls back to a city checkpoint, keep the existing rollback semantics: the discarded combat state does not leak into the restored checkpoint. Replay/journal must be able to reconstruct the cleanup deterministically; do not clear these fields by an unrecorded side mutation.
 
 ## 7. Scene entry, outcomes, and aftermath
 
@@ -219,7 +229,7 @@ A second approval of a consumed or cancelled proposal returns its stored termina
 
 ### 7.2 Scene outcomes
 
-Reuse the current headless engine's existing outcome model: `success`, `retreat`, `defeat`, and `gm_abort`, including its current eligibility and GM-confirmation behavior. The world layer should route committed outcome through aftermath; it must not reinterpret those outcomes or invent new eligibility.
+Reuse the current headless engine's existing outcome model: `success`, `retreat`, `defeat`, and `gm_abort`, including its current eligibility and GM-confirmation behavior. The world layer should route committed outcome through aftermath; it must not reinterpret those outcomes or invent new eligibility. The terminal outcome transition also performs the battle-end runtime cleanup defined in Section 6.4 before subsequent campaign recovery/checkpoint processing.
 
 Store an explicit aftermath status, e.g. `not_started → applying → completed`, and apply one-shot rewards/facts idempotently. A retry after timeout reads the same outcome and aftermath record. A future durable implementation should atomically commit reward eligibility, rewards where implemented, recovery, and checkpoint metadata—or expose a documented recoverable workflow with exactly-once effective results.
 
