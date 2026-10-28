@@ -27,7 +27,7 @@ Do not turn all five classes into the same generic label “bug”. Each has a d
 | ID | Class / priority | Finding or target requirement | Next safe action | Source |
 |---|---|---|---|---|
 | F-02 | Design/integration, P1 | Demo room and headless engine have separate mutation paths | Before external multiplayer, route gameplay commands through one authoritative engine instance; delete/disable parallel rule mutation only in a scoped implementation change | [27](./27-conceptual-architecture-review.md), [28](./28-server-adapter-contract-proposal.md) |
-| F-03 | Security, P0 before untrusted users | Client-provided join role is not proof of identity/membership | Derive role, party membership and actor-to-hero binding from trusted server identity; test role escalation and cross-campaign access | [27](./27-conceptual-architecture-review.md) |
+| F-03 | Security, P0 before untrusted users | Client-provided join role is not proof of identity/membership | Derive role, party membership and actor-to-hero binding from trusted server identity; test role escalation and cross-campaign access ([42](./42-party-membership-and-reconnect-proposal.md)) | [27](./27-conceptual-architecture-review.md) |
 | F-04 | Security, P0 before hidden content | Shared replication is not field-level visibility filtering | Keep private data server-side and serialize explicit allowlisted TV/player/GM projections; inspect actual payloads and reconnect snapshots | [27](./27-conceptual-architecture-review.md), [04 visibility](./04-visibility-matrix.md) |
 | F-05 | Correctness, P1 before spawn workflow | Demo spawn confirmation is not backed by a consumed server-owned proposal | Persist a validated proposal and atomically consume/resolve it; bind to GM/campaign/content/revision | [27](./27-conceptual-architecture-review.md), [28](./28-server-adapter-contract-proposal.md) |
 | F-08 | Source finding, P1 | Rollback can discard queued commands without reconciling request receipts | Decide reject-rollback-while-pending versus explicit terminal cancellation; test stale receipt/retry semantics | [27](./27-conceptual-architecture-review.md), [29](./29-simulation-lifecycle-audit.md) |
@@ -72,6 +72,7 @@ Before relying on the engine for multiplayer retries/replay:
 - One authoritative engine per live scene; no parallel room gameplay state.
 - Request schema validation, size/rate limits and monotonic request lifecycle.
 - Allowlisted projections and negative visibility tests.
+- Explicit disconnect/reconnect and GM-disconnect policy ([42](./42-party-membership-and-reconnect-proposal.md)).
 - No public transport exposure while client role claims or hidden-field replication are unresolved.
 
 **Exit:** authenticated requests can only affect the authorized aggregate and no private data appears in actual serialized payloads.
