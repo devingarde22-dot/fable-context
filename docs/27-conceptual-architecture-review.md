@@ -67,19 +67,19 @@ The repository has a Drizzle schema draft, but the current engine's checkpoints 
 
 **Recommendation:** before implementing persistence, define the commit boundary: what must be stored atomically, how a crash between state and event writes is recovered, how rules/content versions are pinned, and how a retry is recognized after reconnect. Keep this as a design gate; do not add a database just to satisfy an abstract roadmap.
 
-### F-08 — Rollback can discard queued commands without reconciling their request receipts
-**Severity: P1 — decide policy before server integration.**
-
-In `SimulationEngine.ts`, `rollback()` restores the checkpoint and replaces the current input window with an empty window. The `requestResults` map is neither restored nor reconciled, and `submit()` stores the initial `queued` receipt. Final accepted/rejected outcomes are returned separately from `advanceOneTick()`; they do not update that map. Therefore a command queued after a checkpoint can be discarded by rollback while its request ID still resolves to a duplicate of the old queued receipt. A caller cannot infer from that duplicate receipt whether the command remains scheduled or was discarded.
-
-**Recommendation:** before production integration, either reject rollback while the input window has pending commands or explicitly mark discarded requests cancelled and make that terminal state queryable. Track request lifecycle separately from the initial submission receipt. Add tests for retry after accepted, rejected, pending, rollback, and reconnect. This is a concrete uncovered edge case from source inspection; it has not been runtime reproduced in this review.
-
 ### F-07 — Existing idempotency is engine-local, not yet a durable transport guarantee
 **Severity: P2 — network integration gate.**
 
 The headless engine remembers request results in memory and recognizes duplicate request IDs during that engine instance. That is useful for simulation tests, but does not by itself define identity scope, retention, restart behavior or duplicate delivery across reconnects and durable transactions.
 
 **Recommendation:** specify request identity scope (campaign/session/actor), retention and replay semantics before transport/persistence work. Test the same request before and after a tick, timeout, reconnect, rollback and process restart.
+
+### F-08 — Rollback can discard queued commands without reconciling their request receipts
+**Severity: P1 — decide policy before server integration.**
+
+In `SimulationEngine.ts`, `rollback()` restores the checkpoint and replaces the current input window with an empty window. The `requestResults` map is neither restored nor reconciled, and `submit()` stores the initial `queued` receipt. Final accepted/rejected outcomes are returned separately from `advanceOneTick()`; they do not update that map. Therefore a command queued after a checkpoint can be discarded by rollback while its request ID still resolves to a duplicate of the old queued receipt. A caller cannot infer from that duplicate receipt whether the command remains scheduled or was discarded.
+
+**Recommendation:** before production integration, either reject rollback while the input window has pending commands or explicitly mark discarded requests cancelled and make that terminal state queryable. Track request lifecycle separately from the initial submission receipt. Add tests for retry after accepted, rejected, pending, rollback, and reconnect. This is a concrete uncovered edge case from source inspection; it has not been runtime reproduced in this review.
 
 ## 3. Architecture decisions to preserve
 
