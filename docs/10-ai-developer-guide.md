@@ -1,11 +1,13 @@
 # Fable — AI Developer Guide
 
-**Версия:** 0.1  
+**Версия:** 0.2  
 **Статус:** CONFIRMED
 
-## 1. Правило
+## 1. Рабочий принцип
 
-Не проси AI «сделать Fable». Дай ему одну маленькую задачу, ограниченный context packet, список разрешённых файлов и тесты, которые доказывают результат.
+Не проси AI «сделать Fable». Дай ему одну конкретную, проверяемую задачу, ограниченный context packet, список разрешённых файлов и acceptance criteria.
+
+Не вноси изменения только потому, что что-то можно улучшить теоретически. Сначала установи, существует ли реальная проблема или подтверждённая потребность. Если нет — не меняй код. Если проблема вероятна, но не подтверждена, выполни целевую проверку и обозначь неопределённость. Не превращай гипотезы и косметические предпочтения в обязательные исправления.
 
 ## 2. Context packet template
 
@@ -15,144 +17,125 @@
 ## Goal
 <one testable sentence>
 
-## Read first
-- docs/00-product-constitution.md
-- docs/01-glossary.md
-- docs/02-confirmed-rules.md#<section>
-- docs/03-system-contracts.md#<section>
-- docs/04-visibility-matrix.md#<section>
-- docs/05-vertical-slice.md#<section>
+## Current state
+<relevant implementation status; link to docs/26-current-state-and-architecture.md>
 
-## Rule IDs
-- TIME-003
-- INTENT-005
+## Normative sources
+- <specific confirmed rule / contract / Decision Record>
+- <relevant JSON Schema or acceptance test>
+
+## Rule IDs / Decision Records
+- <only relevant IDs>
 
 ## Allowed files
-- server/simulation/intents/ranged-shot.ts
-- tests/simulation/ranged-shot.test.ts
+- <exact files or bounded directories>
 
 ## Forbidden changes
-- lore
-- formulas outside Balance Sheet
-- public API
-- database migrations
+- <unrelated subsystems, gameplay rules, public API, migrations>
 
 ## Acceptance
-- <given/when/then>
+- <observable given/when/then criteria>
+
+## Verification
+- <specific commands and scenario tests>
 
 ## Deliver
-- changed files
-- tests
-- assumptions
-- open questions
-- commands run
+- changed files and diff summary
+- Rule IDs / Decision Records affected
+- tests and exact commands run
+- assumptions and open questions
+- determinism/replay/visibility/rollback review where applicable
 ```
 
 ## 3. Agent roles
 
 ### Planner
-
-Не редактирует код. Возвращает dependency graph, затронутые Rule IDs, план файлов, риски и вопросы.
+Не редактирует код. Возвращает dependency graph, затронутые Rule IDs, план файлов, риски и только те вопросы, которые действительно блокируют решение.
 
 ### Implementer
-
-Пишет код и tests только в allowed files. Не меняет confirmed rules молча.
+Пишет код и tests в согласованных пределах. Не меняет confirmed gameplay semantics молча. Не расширяет scope автоматически.
 
 ### Reviewer
-
-Проверяет diff против contracts, visibility matrix, schemas и acceptance. Ищет утечки и state mutations на клиенте.
+Проверяет diff против contracts, visibility matrix, schemas и acceptance. Ищет ошибки, утечки, недопустимые state mutations и ненужную сложность.
 
 ### Test Agent
-
-Создаёт unit, simulation, replay, visibility и e2e tests. Не меняет production rules, чтобы тест прошёл.
+Создаёт unit, simulation, replay, visibility и e2e tests для значимых рисков. Не меняет production rules, чтобы тест прошёл.
 
 ### Content Agent
-
-Генерирует JSON-контент по schema. Не добавляет hidden fields, новые правила и новые числовые формулы.
+Генерирует контент по schema. Не добавляет hidden fields, новые правила, баланс или числовые формулы без подтверждённого решения.
 
 ## 4. Mandatory AI response format
 
 ```md
 ## Summary
-
 ## Changed files
-
-## Rule IDs covered
-
-## Tests added/updated
-
-## Commands run
-
+## Rule IDs / Decision Records affected
+## Tests and exact commands run
 ## Assumptions
-
 ## Open questions
-
-## Security/visibility review
-
+## Security / visibility review
+## Determinism / replay / rollback review (when relevant)
 ## Known limitations
 ```
 
 ## 5. Stop conditions
 
-AI обязан остановиться и вернуть `OPEN_QUESTION`, если:
+Остановись на затронутом участке и верни `OPEN_QUESTION`, если:
+- два подтверждённых нормативных источника противоречат друг другу и выбор меняет поведение;
+- задача требует изменения Schema/API, которое не входит в разрешённый scope;
+- неизвестно, должен ли field быть public или GM-only;
+- требуется новое игровое правило, баланс или production content;
+- golden test / expected result не определён;
+- rollback, migration или изменение контракта может потерять данные или нарушить совместимость;
+- AI proposal требует прямого authoritative state change без серверной проверки и подтверждения.
 
-- два CONFIRMED-документа противоречат друг другу;
-- задача требует изменить Schema/API, но это не разрешено packet;
-- неясно, должен ли field быть public или GM-only;
-- нужен новый gameplay rule;
-- неизвестен expected result golden test;
-- нужно удалить или мигрировать данные;
-- Copilot proposal требует прямого state change.
+Не останавливай всю задачу из-за несущественного противоречия, не влияющего на неё; зафиксируй его отдельно.
 
 ## 6. Safe prompt
 
 ```text
 Ты работаешь над Fable как Implementer.
 
-Сначала прочитай только перечисленные файлы. Не ищи молча новые правила по всему проекту.
-Реализуй задачу только в allowed files.
-Не меняй confirmed gameplay semantics.
-Сервер является источником истины; клиент не рассчитывает результат.
-Для каждой изменённой ветки добавь тест.
-Если документы противоречат друг другу, остановись и верни OPEN_QUESTION.
-Не запускай destructive migration и не используй секреты.
-В финале верни строго: Summary, Changed files, Rule IDs, Tests, Assumptions, Open questions, Visibility review.
+Используй уже предоставленный контекст и current-state summary; не перечитывай весь репозиторий по умолчанию. Найди только конкретные нормативные источники, код и тесты, необходимые для поставленной задачи.
+
+Сначала определи, есть ли реальная проблема или подтверждённая потребность. Если нет, не меняй код и кратко объясни почему. Если проблема вероятна, но не подтверждена, проведи целевую проверку.
+
+Не придумывай новые gameplay rules, balance или production content. Если подтверждённые нормативные источники конфликтуют и конфликт влияет на решение, верни OPEN_QUESTION с точными ссылками и рекомендуемым вариантом, не выбирая трактовку молча.
+
+Сервер — источник истины. Клиент и AI не рассчитывают и не применяют authoritative gameplay outcomes. Сохраняй детерминизм, контрактную валидацию, replay и visibility boundaries.
+
+Изменяй только файлы, необходимые для задачи. Не расширяй scope, не выполняй несвязанный рефакторинг, не создавай абстракции без практической необходимости. После изменения проверь diff и запусти подходящие тесты. Не заявляй о проверках, которые не выполнялись.
+
+В финале верни Summary, Changed files, Rule IDs/Decision Records, Tests and commands, Assumptions, Open questions, Security/visibility review, Known limitations.
 ```
 
 ## 7. Code review checklist
 
-- [ ] Нет state mutation в UI.
-- [ ] Command содержит requestId и clientRevision.
-- [ ] Server повторно проверяет ownership и role.
-- [ ] Event создаётся только после commit.
-- [ ] Повтор команды идемпотентен.
-- [ ] Visibility фильтруется до сериализации.
-- [ ] Seed записан для случайного исхода.
-- [ ] Timer считается сервером.
-- [ ] Rollback и reward не дублируют state.
-- [ ] Schema и tests обновлены вместе с API.
-- [ ] Нет секретов/API key в client bundle.
+- [ ] Нет authoritative state mutation в UI/client/AI.
+- [ ] Server проверяет ownership, role, phase, revision и доступность действия.
+- [ ] Command описывает намерение, а не рассчитанный исход.
+- [ ] Команда атомарна; rejected command не оставляет своих gameplay mutations.
+- [ ] Принятые действия не откатываются из-за последующего rejected action в той же input window.
+- [ ] Event order, revision и sequence соответствуют контракту.
+- [ ] Retry / duplicate request не дублирует эффект там, где гарантирована идемпотентность.
+- [ ] Visibility фильтруется до сериализации; нет утечек через ошибки, journal или debug projections.
+- [ ] Seed/RNG/timers и обход коллекций детерминированы.
+- [ ] Replay и state hash совпадают для поддерживаемого сценария.
+- [ ] Rollback сохраняет append-only history и не переиспользует sequence/revision.
+- [ ] Schema, implementation и tests обновлены согласованно.
+- [ ] Нет секретов/API keys в repository или client bundle.
+- [ ] Diff не содержит несвязанных изменений.
 
 ## 8. Work order
 
-1. Normalize docs and Rule IDs.
-2. Create JSON Schema.
-3. Implement headless simulation.
-4. Add golden tests.
-5. Add server room and projections.
-6. Add persistence transaction.
-7. Add TV/Player/GM clients.
-8. Add GM tools.
-9. Add read-only AI Copilot.
-10. Add state-changing proposal confirmation last.
+Используй roadmap как последовательность зависимостей, а не как разрешение реализовывать все будущие слои. На текущем этапе Increment 10 уже merged; не начинай следующий increment автоматически. Сначала работай над конкретной пользовательской задачей или одобренным планом стабилизации. UI, transport, persistence, authentication, deployment и AI Copilot остаются отдельными scope и не должны незаметно добавляться в headless rules.
 
 ## 9. Definition of a good AI contribution
 
-Хорошая contribution маленькая, проверяемая и обратимая. По ней можно ответить:
-
-- какое правило она реализует;
-- какой event создаёт;
-- кто его видит;
+Хорошая contribution мала, проверяема и обратима. Можно ответить:
+- какую реальную проблему она решает;
+- какое правило/контракт реализует;
+- какой event создаёт и кто его видит;
 - какой тест доказывает результат;
-- что произойдёт при retry/reconnect/rollback;
-- какие файлы не были затронуты.
+- что происходит при retry/reconnect/rollback;
+- какие файлы и подсистемы не затронуты.

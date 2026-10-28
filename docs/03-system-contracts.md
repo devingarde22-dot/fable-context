@@ -92,11 +92,11 @@ type CommandResult =
 
 ### `player.enter_ranged_mode`
 
-Переход доступен, если в фильтрованной колоде есть дальняя карта. Карты не применяются автоматически; сервер выдаёт разрешённый player projection.
+Переход доступен только если authoritative `hero.canEnterRangedMode === true`; поле участвует в runtime state, snapshot, state hash и replay. Карты не применяются автоматически; сервер выдаёт разрешённый player projection.
 
 ### `player.enter_movement_mode`
 
-Не зависит от карты. Если герой в ближнем бою, запускается отступление и бесплатные базовые атаки окружающих врагов. Если герой не в бою, телефон показывает стрелки.
+Не зависит от карты. Если герой в ближнем бою, запускается отступление и бесплатные базовые атаки окружающих врагов по DR-C-003. Контакт после ranged → movement без immunity сразу переводит в melee, без retreat. Если герой не в бою, телефон показывает стрелки.
 
 ### `gm.apply_consequence`
 
@@ -151,6 +151,7 @@ type CommandResult =
 ```text
 scene.created
 scene.entity_moved
+scene.entity_removed
 card.drawn
 card.played
 card.discarded
@@ -175,6 +176,9 @@ scene.transferred
 
 Каждое событие содержит `eventVersion`, `sceneRevision`, `serverTick`, `serverSequence` и `causedByRequestId`.
 
+Для retreat: accepted command creates one event group and increments `sceneRevision` once; attack/HP events resolve by ascending `enemyId`; emit `hp.changed` only on actual HP change. Contact checks occur after hero movement, enemy movement, scene activation when available, and mode transition. Replay reconstructs mode/HP/immunity/group/hash from events or deterministic tick; see [DR-C-003](./16-step-c-retreat-resolution.md).
+
+New damage is recorded as `hp.changed` v2 with source and `fable.damage.v1` inputs/results; v1 remains replay-compatible. Enemy removal uses `scene.entity_removed` after HP reaches 0 and cleanup runs. If its active intent exists, order is `hp.changed` → `intent.cancelled(owner_removed)` → `scene.entity_removed`. Events from one damage batch share one `sceneRevision` and `eventGroupId`; formula/source details are GM/audit-only.
 ## 5. Детерминированный scheduler
 
 ```text
@@ -297,6 +301,7 @@ CLOSED_* → rollback checkpoint → RESTORED
 ```text
 AUTH_FORBIDDEN
 STALE_SCENE_REVISION
+STALE_CARD_REVISION
 DUPLICATE_REQUEST
 INVALID_MODE
 CELL_BLOCKED
@@ -304,7 +309,9 @@ TARGET_NOT_VISIBLE
 TARGET_OUT_OF_RANGE
 LINE_OF_SIGHT_BLOCKED
 CARD_NOT_AVAILABLE
+CARD_MODE_MISMATCH
 INSUFFICIENT_STAMINA
+ENTITY_UNABLE_TO_ACT
 STATE_LOCKED
 INTENT_EXPIRED
 NODE_NOT_DISCOVERED

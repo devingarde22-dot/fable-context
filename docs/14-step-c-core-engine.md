@@ -44,9 +44,11 @@ Step C превращает подтверждённые правила в де�
 
 Команда содержит намерение: направление, карту, режим или цель. Она не может содержать `rawDamage`, `finalDamage`, `hit`, `critical`, `seed`, `destination`, `newHp`, `newStamina` или другой вычисленный результат.
 
-### C-003 — атомарный batch
+### C-003 — command-level atomicity inside an ordered batch
 
-Одна закрытая input window обрабатывается как атомарный batch. Либо все допустимые изменения batch применяются в определённом порядке, либо state не изменяется. Отклонённая команда не создаёт domain event и не увеличивает `sceneRevision`.
+Одна закрытая input window обрабатывается как детерминированный batch в порядке players → enemies → environment. Каждая команда валидируется и применяется атомарно: если команда отклонена, вызванная именно ею gameplay mutation не происходит, domain event не создаётся и `sceneRevision` не увеличивается. Уже принятые ранее команды того же batch не откатываются из-за последующего reject; например, при конкуренции за одну клетку команда-победитель применяется, остальные конфликтующие команды отклоняются. Если batch содержит одну или более принятых gameplay mutations, они входят в один event group и увеличивают `sceneRevision` ровно один раз.
+
+Authoritative `serverTick` и scheduler/input-window bookkeeping продолжают продвигаться независимо от результата команды. Их изменение при закрытии окна не считается gameplay mutation, вызванной отклонённой командой.
 
 ### C-004 — deterministic replay
 
@@ -179,6 +181,7 @@ export type CellRuntime = {
 ```ts
 export type EntityRuntime = {
   id: EntityId;
+  canEnterRangedMode?: boolean; // required on HeroRuntime; authoritative and included in snapshot/hash/replay
   kind: "hero" | "enemy" | "npc" | "summon";
   templateKey: string;
   faction: "party" | "enemy" | "neutral";
@@ -199,9 +202,7 @@ export type ResourceValue = { current: number; max: number };
 export type StaminaRuntime = {
   current: number;
   max: number;
-  regenEveryTicks: number;
   nextRegenAtTick: number | null;
-  pausedByMovement: boolean;
 };
 ```
 
@@ -213,14 +214,14 @@ export type StaminaRuntime = {
 export type DeckRuntime = {
   drawPile: CardInstanceId[];
   hand: CardInstanceId[];       // максимум 5
-  defenseSlot: CardInstanceId | null;
-  discardPile: CardInstanceId[];
-  excludedForMode: CardInstanceId[]; // логически не теряются; возвращаются при reshuffle
+  discard: CardInstanceId[];
+  excludedForMode: CardInstanceId[]; // карта другого режима не теряется
   revision: number;
+  nextHandRotationAtTick: number | null;
 };
 ```
 
-Карта всегда находится ровно в одном контейнере. Сыгранная карта переходит в discard. Новая карта занимает левое место, правая карта hand уходит в discard. При входе в battle mode engine выдаёт 5 hand cards и 1 defense card. Вне боя hand не показывается player projection.
+Каждый instance находится ровно в одном из четырёх контейнеров. В Increment 7 при каждом входе/переключении в `melee` или `ranged` server собирает все instances, фильтрует по `allowedModes`, детерминированно перемешивает eligible pool и выдаёт до пяти карт; не подходящие для текущего режима идут в `excludedForMode`. Успешный play переносит карту из hand в `discard` без немедленного добора. Defense slot и production card catalog пока не реализованы. Канонические правила ротации, empty piles, RNG и replay заданы [DR-C-007](./21-step-c-deck-cycle.md).
 
 ---
 
@@ -309,7 +310,7 @@ Transport adapter передаёт уже schema-validated `InternalCommand` с 
 
 ### 6.3 WINDOW_CLOSE
 
-Когда окно закрывается, commands сортируются строго так:
+На каждом authoritative tick фазы выполняются в фиксированном порядке. Player commands обрабатываются только при закрытии их пяти-tick input window; due enemy intents проверяются на каждом tick. Поэтому на window-close tick сначала применяются player commands, затем due enemy intents, затем environment:
 
 ```text
 1. player commands
@@ -342,7 +343,7 @@ requestId ASC
 
 ### 6.5 INTENT_RESOLUTION
 
-Каждый enemy с intent, достигшим `resolvesAtTick`, разрешается один раз. Intent resolution проверяет актуальные клетки, LoS, target validity и statuses. Невыполнимый intent не наносит частичный эффект: он создаёт `intent.cancelled` с причиной и немедленно выбирает следующий возможный template по AI priority order.
+На каждом tick каждый enemy с intent, достигшим `resolvesAtTick`, разрешается не более одного раза. На окне закрытия это происходит после player actions; между закрытиями — после пустой player phase. Intent resolution проверяет актуальные клетки, LoS, target validity и statuses. Невыполнимый intent не наносит частичный эффект: он создаёт `intent.cancelled` с причиной и проверяет ordered fallback согласно DR-C-002.
 
 ### 6.6 ENVIRONMENT
 
@@ -354,23 +355,17 @@ requestId ASC
 
 ### 6.7 RESOURCE_REGEN
 
-Stamina regen проверяется по tick. Базовый regen — 1 единица каждые 300 ticks (15 секунд), если герой не находится в состоянии, блокирующем regen. Во время movement stamina может восстанавливаться согласно confirmed rule; `pausedByMovement` используется только если конкретный ruleset preset это включает. Step C default: movement **не блокирует** regen.
+Stamina regen использует только authoritative ticks: 1 единица каждые 300 ticks (15 секунд). Новый hero начинает с 3 stamina; `max` задаётся config/preset и должен быть не меньше 3. Если `current < max` и герой активен, первый due tick равен `initialServerTick + 300`.
 
-Если regen timer догнал текущий tick:
+На due tick активный герой получает ровно 1 единицу. Если он всё ещё ниже максимума, следующий due tick сдвигается на 300 ticks. При достижении max timer становится `null`: полный запас не накапливает восстановления. Будущее успешное списание должно запускать новый полный интервал от tick списания, а не выдавать catch-up. Регенерация не выполняется при `aliveState !== "active"`; HP=0/`critically_injured` останавливает timer. Movement, melee и ranged mode не блокируют regen.
 
-```text
-while currentTick >= nextRegenAtTick and stamina < max:
-  stamina += 1
-  nextRegenAtTick += regenEveryTicks
-```
-
-Один tick не может восстановить больше одной единицы, если это явно не задано status effect.
+Ресурсная фаза запускается после players, enemies и environment и до cleanup; heroes обрабатываются по `heroId`. Каждое реальное восстановление выдаёт `stamina.changed`; timer и current входят в replay и `stateHash`. Scene pause engine support не входит в Increment 5; pause contracts остаются будущей отдельной задачей.
 
 ### 6.8 CLEANUP
 
 В фиксированном порядке:
 
-1. удалить expired status layers;
+1. удалить due status layers по `entityId`, затем `layerId`; emit `status.expired` once per layer;
 2. завершить immobilized/unconscious timers;
 3. очистить resolved/cancelled intents;
 4. применить mode transitions, отложенные до конца resolution;
@@ -411,7 +406,7 @@ raw transport message
 
 ### Rejection rules
 
-Rejection не изменяет state, не записывает domain event и не увеличивает revision. Transport может вернуть `command.rejected` result, но это не journal event.
+Rejection не вызывает gameplay-state mutation, не записывает domain event и не увеличивает revision. Authoritative `serverTick` и scheduler bookkeeping могут продвигаться независимо от reject. Transport может вернуть `command.rejected` result, но это не journal event.
 
 Минимальные Step C errors:
 
@@ -419,6 +414,7 @@ Rejection не изменяет state, не записывает domain event и
 SCHEMA_INVALID
 AUTH_FORBIDDEN
 STALE_SCENE_REVISION
+STALE_CARD_REVISION
 DUPLICATE_REQUEST
 STATE_LOCKED
 INVALID_MODE
@@ -444,19 +440,19 @@ INVALID_STATE
 ```text
 OUT_OF_COMBAT
 ├─ player.enter_movement_mode → MOVEMENT
-├─ player.enter_ranged_mode + ranged card exists → RANGED_COMBAT
+├─ player.enter_ranged_mode + hero.canEnterRangedMode === true → RANGED_COMBAT
 └─ contact with enemy → MELEE_COMBAT
 
 MOVEMENT
-├─ player.move + free cell → MOVEMENT
+├─ player.move + free cell → MOVEMENT; then contact check
 ├─ contact + immunity expired → MELEE_COMBAT
-├─ player.enter_ranged_mode + ranged card exists → RANGED_COMBAT
+├─ player.enter_ranged_mode + hero.canEnterRangedMode === true → RANGED_COMBAT
 └─ scene end → OUT_OF_COMBAT
 
 RANGED_COMBAT
 ├─ allowed ranged/universal card → RANGED_COMBAT
-├─ player.enter_movement_mode → MOVEMENT
-├─ move/contact while immunity expired → MELEE_COMBAT
+├─ player.enter_movement_mode → MOVEMENT; then contact check
+├─ contact → MELEE_COMBAT (no immunity and no retreat)
 └─ scene end → OUT_OF_COMBAT
 
 MELEE_COMBAT
@@ -466,27 +462,11 @@ MELEE_COMBAT
 └─ scene end → OUT_OF_COMBAT
 ```
 
-### Контакт и 15-second immunity
-
-Melee contact — любая из 8 соседних клеток вокруг enemy. Войти в melee можно при proximity, но после retreat в movement герой получает `contactImmunityUntilTick = currentTick + 300`. Пока immunity active, contact не переводит его обратно в melee; он может занять соседнюю клетку и продолжать movement.
-
-### Retreat resolution
-
-При переходе `MELEE_COMBAT → MOVEMENT` engine:
-
-1. определяет окружающих врагов в melee contact;
-2. сортирует их по enemy id;
-3. каждому даёт одну бесплатную базовую атаку;
-4. применяет retreat group coefficient только к этим атакам, не к обычному combat;
-5. запрещает stun от retreat attack;
-6. допускает damage/status effects, если они разрешены attack template;
-7. создаёт `mode.changed` и соответствующие `hp.changed`/`status.applied`;
-8. включает 15-second contact immunity.
-
-Если герой окружён и все соседние клетки blocked/occupied врагами, `player.move` отклоняется, а hero получает или сохраняет `last_chance` status согласно ruleset.
-
+### Контакт и contact immunity
+Melee contact — любая из 8 соседних клеток вокруг enemy. Проверка контакта выполняется после перемещения героя, перемещения врага, активации сцены (если доступно) и перехода режима. После melee retreat герой получает `contactImmunityUntilTick = currentTick + 300`; immunity активно, пока `serverTick < contactImmunityUntilTick`. Контакт не переводит героя в melee во время immunity. При контакте после перехода ranged → movement immunity не предоставляется: немедленный переход в melee, без retreat resolution.
+### Retreat resolution (DR-C-003)
+Только при переходе `MELEE_COMBAT → MOVEMENT` engine определяет окружающих врагов в melee contact, сортирует их строго по `enemyId` ascending (без RNG) и разрешает по одной immediate basic attack каждому. Для attack number `i` в этом порядке (1-based) коэффициент равен `1 / i`; он применяется только к retreat attacks. Формула: `mitigation = 100 / (100 + heroDefense)`, `mitigatedDamage = ceil(rawDamage * mitigation)`, `finalDamage = ceil(mitigatedDamage * coefficient)`; HP floors at 0. Нет crit, miss, status или stun. Продолжить все eligible атаки, даже если HP достигло 0; установить `critically_injured`. Emit `hp.changed` только если HP реально изменилось. Установить immunity в `currentTick + 300` до `mode.changed(reason: retreat)`. Accepted retreat command формирует одну event group и увеличивает `sceneRevision` ровно один раз; атаки и их HP events идут по `enemyId` ascending. Same-tick enemy intents продолжаются обычно с обычными preconditions; их не отменять и не перезапускать.
 ---
-
 ## 9. Movement и collision
 
 ### `player.move`
@@ -531,9 +511,11 @@ A* не требуется в Step C. Если greedy path не существу
 
 ### ActiveIntent
 
+Подробное подтверждённое решение для Enemy Registry + Deterministic Intent Simulation зафиксировано в [DR-C-002](./15-step-c-intent-simulation.md). Для intent template единственный wire source of truth — `packages/contracts/intent.schema.json`.
+
 ```ts
 export type ActiveIntent = {
-  id: string;
+  activeIntentId: string;
   ownerEntityId: EntityId;
   templateKey: string;
   state: "started" | "telegraphed" | "resolving" | "resolved" | "cancelled";
@@ -541,9 +523,10 @@ export type ActiveIntent = {
   resolvesAtTick: number;
   targetEntityId: EntityId | null;
   targetCell: Cell | null;
-  targetPolicy: "nearest" | "threat" | "seeded_random" | "self" | "ally";
-  selectionSeed: string;
-  cancelReason: string | null;
+  publicTargetCell: Cell | null;
+  selectionPolicy: TargetPolicy;
+  seedRef: string | null;
+  cancelReason: IntentCancelReason | null;
 };
 ```
 
@@ -562,38 +545,36 @@ TELEGRAPHED
 → NEXT_INTENT
 ```
 
-Intent template имеет `durationTicks`, `priority`, `range`, `requiresLineOfSight`, `targetPolicy` и typed effect payload. Базовое намерение — 15 секунд (`300 ticks`), но конкретное намерение может переопределить duration; минимальный allowed duration — 3 секунды (`60 ticks`).
+Wire template использует `durationMs`, `conditions`, `targetRules`, `effect` и `fallbackKeys` согласно `intent.schema.json`. Runtime derives `durationTicks = durationMs / 50`; валидная длительность не меньше 3000 ms и делится на 50 без остатка. Не добавлять параллельные wire fields `durationTicks`, `requiresLineOfSight`, `targetPolicy` или `range`.
 
 ### Target selection
 
 1. Отфильтровать entities по faction, alive state, range, LoS и status rules.
-2. Применить template priority (`threat`, nearest или explicit rule).
-3. Если осталось несколько равных targets, выбрать через forked deterministic seed.
-4. Записать exact target и seed в GM/audit event; TV/Player получают только разрешённый telegraph.
+2. Применить указанную `targetRules.policy` и последовательно проверить `fallbackPolicies`.
+3. Если несколько targets имеют одинаковый лучший rank, выбрать через forked `target_selection` RNG; unique candidate не требует random draw.
+4. Записать exact target, policy, tie-break mode и `seedRef` в GM/audit event; TV/Player получают target cell только при явном разрешении visibility/reveal policy.
 
 ### Impossible intent
 
-Intent считается impossible, если после target filtering нет валидной цели, path, range или LoS. Resolution:
+Intent считается impossible, если после проверки текущего authoritative state не выполняются target, path, range, LoS или effect preconditions. Impossible intent не применяет частичный gameplay mutation. Resolution:
 
 ```text
 intent.cancelled(reason)
-→ choose next valid intent by priority
-→ intent.started
+→ try fallbackKeys in declared order, then hold_position only if allowed by the enemy template
+→ intent.started for the first valid, supported fallback (if any)
 ```
 
-Нельзя бесконечно выбирать один и тот же impossible intent в одном tick: engine ведёт `attemptedTemplateKeys` и после одного прохода использует `hold_position` как final fallback.
+Если валидного fallback нет, emit terminal `intent.cancelled(no_valid_fallback)`, оставить enemy без active intent и не повторять impossible intent в том же tick. `reposition` — deferred/draft, не активный handler и не fallback. Подробности порядка проверки и fallback — в DR-C-002.
 
 ### Первый registry
 
-| Template | Duration | Preconditions | Resolution |
-|---|---:|---|---|
-| `move_close` | 15s | target + path | move one or two intent steps toward target |
-| `melee_strike` | 6s | target in contact | 140 raw damage |
-| `ranged_shot` | 10s | range 2–7 + LoS | 110 raw damage |
-| `reposition` | 8s | valid free cell | deterministic move |
-| `bind` | 12s | visible target <=5 cells | immobilized 15s |
-| `ally_guard` | 15s | ally <=4 cells | +20% defense 15s |
-| `hold_position` | 15s | fallback | no damage, reevaluate |
+| Enemy | Registered content | Active runtime handlers in this increment |
+|---|---|---|
+| `quarantine_chaser` | `move_close`, `melee_strike`, `hold_position` | `move_close`, `melee_strike`, `hold_position` |
+| `slag_shooter` | `ranged_shot`, `reposition` (draft/deferred), `hold_position` | `ranged_shot`, `hold_position` |
+| `extinguisher` | `bind`, `ally_guard`, `move_close` | `bind` and `ally_guard` active; `reposition` remains inactive |
+
+`bind` is an active runtime handler for the bounded `immobilized` effect specified in [DR-C-008](./22-step-c-status-immobilized.md). The existing production `extinguisher` template is active now that both required status handlers are implemented; no catalog values were added or changed. `ally_guard` behavior is specified in [DR-C-009](./23-step-c-ally-guard.md). `reposition` remains deferred and inactive. Enemy-specific timers/effects and RNG/version details are defined in DR-C-002.
 
 ---
 
@@ -664,7 +645,7 @@ criticalFinal = ceil(modeFinal * 1.5)
 
 При `hp.current` равном нулю engine переводит hero в `critically_injured`, а не удаляет его из scene. В первом slice critically injured герой не может действовать. Полная defeat/party outcome решается OutcomeSystem, не HP handler.
 
-Enemy с HP 0 получает `removed` после batch cleanup; его occupied cell освобождается только в cleanup phase, не в середине player action ordering.
+Enemy с HP 0 немедленно исключается из целей и разрешения intents, но получает `removed` только после batch cleanup; его occupied cell освобождается только в cleanup phase, не в середине player action ordering. Если enemy имеет active intent, cleanup emits `intent.cancelled(owner_removed)` перед `scene.entity_removed(hp_depleted)`. Контракт и формула описаны в [DR-C-004](./18-step-c-hp-damage-resolution.md).
 
 ### Stamina timer
 
@@ -684,7 +665,7 @@ Engine хранит `nextRegenAtTick`, а projection строит circular timer
 ```ts
 export type StatusLayer = {
   id: string;
-  templateKey: string;
+  templateKey: "immobilized" | "ally_guard"; // current implemented status keys; see DR-C-008/009
   sourceEntityId: EntityId | null;
   potency: number;
   stacks: number;
@@ -694,14 +675,19 @@ export type StatusLayer = {
 };
 ```
 
-Минимальная длительность обычного combat status — 15 секунд (`300 ticks`), кроме explicitly configured reaction/animation locks. Повторное наложение может складывать duration, но potency использует template stack policy и не растёт бесконечно.
+Runtime layer shape and creation/clone invariants are specified in [DR-C-008](./22-step-c-status-immobilized.md). The current `StatusTemplateKey` is the closed union `"immobilized" | "ally_guard"`; the shared `StatusRefreshPolicy` type lists future policy values, but only `"refresh_duration"` is enabled for these statuses.
 
-Step C statuses:
+`immobilized` and `ally_guard` last 300 ticks. Refresh preserves layer ID, original source, potency and stacks, then sets `appliedAtTick` to the latest successful application tick and expiry to that tick + 300; it does not add duration or potency. Status cleanup runs after player/enemy/environment/resource/card phases; the status is effective through gameplay resolution on its due tick and is then removed with `status.expired`. This exact boundary is covered by integration tests.
 
-- `immobilized`: запрещает movement; default 15s;
+Implemented in this Step C increment:
+
+- `immobilized`: blocks `player.move`; 15 seconds / 300 ticks; only test-backed `bind` applies it.
+- `ally_guard`: 20% defense bonus for 15 seconds / 300 ticks; the existing Extinguisher intent applies it to an eligible enemy ally. Damage uses `effectiveDefense = baseDefense * 1.20` without intermediate rounding; base entity defense is unchanged. See [DR-C-009](./23-step-c-ally-guard.md).
+
+Future, not implemented by Increment 8:
+
 - `unconscious`: запрещает любое действие на configured duration;
 - `last_chance`: +20% all stats while surrounded, if enabled by ruleset;
-- `ally_guard`: +20% defense;
 - `stamina_overload`: -30% stamina regeneration for 15s after configured powerful card;
 - `contact_immunity`: скрытый control timer after retreat.
 
@@ -726,8 +712,11 @@ card.discarded
 intent.started
 intent.target_selected       // if target policy requires explicit target
 intent.resolved
-hp.changed / status.applied  // effects after intent resolution
+hp.changed v2 / status.applied / status.refreshed  // effects after resolution; status events immediately follow their bind/ally_guard resolution
+intent.cancelled(owner_removed) → scene.entity_removed  // if a zero-HP enemy owns an active intent
 ```
+
+`status.expired` is emitted in the post-gameplay status cleanup phase. Replay re-evaluates the existing Ally Guard target policy/eligibility and rejects tampered target selection. Bind event ordering and status-layer rules are defined in [DR-C-008](./22-step-c-status-immobilized.md); Ally Guard effective-defense and replay requirements are defined in [DR-C-009](./23-step-c-ally-guard.md).
 
 Event envelope получает:
 
@@ -772,7 +761,7 @@ return S
 
 `stateHash` строится из canonical JSON с отсортированными entity IDs, card containers, statuses и intents. Нельзя использовать JSON.stringify для Map без canonicalization.
 
-Replay не вызывает random functions. Все random outcomes уже содержатся в event payload или восстанавливаются через recorded seed и versioned RNG algorithm.
+Replay не вызывает random functions. Все random outcomes уже содержатся в event payload или восстанавливаются через recorded seed и versioned RNG algorithm. Replay принимает historical `hp.changed` v1 и валидирует формулу и итоговый HP для `hp.changed` v2 (`fable.damage.v1`). `scene.entity_removed` восстанавливает `removed` state и освобождение клетки. Retreat replay восстанавливает mode, HP, contact immunity, event group and hash из событий либо детерминированного tick. `hero.canEnterRangedMode` — authoritative state; если равно `true`, участвует в runtime state, snapshot, state hash и replay.
 
 ---
 
@@ -810,6 +799,7 @@ Projection adapter принимает internal state и role context, затем
 packages/rules/src/
 ├── engine/SimulationEngine.ts
 ├── engine/types.ts
+├── engine/cleanup.ts
 ├── clock/TickClock.ts
 ├── scheduler/InputWindow.ts
 ├── scheduler/orderCommands.ts
@@ -847,6 +837,7 @@ Pure formulas (`damage.ts`, `targeting.ts`, `pathing.ts`) должны имет�
 - diagonal contact;
 - range and LoS;
 - damage formula and melee magic multiplier;
+- staged `fable.damage.v1` rounding, HP clamp and damage-source metadata;
 - stamina cost 0/positive;
 - status refresh and expiry;
 - target filtering and seeded tie-break;
@@ -859,21 +850,22 @@ Pure formulas (`damage.ts`, `targeting.ts`, `pathing.ts`) должны имет�
 1. `player.move` changes one cell and emits one movement event.
 2. Two players targeting the same cell resolve deterministically; only one succeeds.
 3. Player and enemy due in same window resolve players first.
-4. Stale revision changes nothing.
-5. Duplicate request changes nothing and returns same idempotent result.
-6. Retreat causes one free attack per surrounding enemy and grants immunity.
-7. Contact starts melee; ranged mode requires available ranged card.
+4. Stale revision leaves gameplay state, `sceneRevision` and journal unchanged; `serverTick`/window bookkeeping may still advance.
+5. Duplicate request creates no additional gameplay mutation or event and returns the idempotent duplicate result.
+6. DR-C-003 retreat resolves one ordered free attack per eligible surrounding enemy and grants immunity; no duplicate `hp.changed` on unchanged HP.
+7. Contact starts melee; ranged mode requires authoritative `hero.canEnterRangedMode === true`.
 8. Melee magic halves damage but preserves status potency.
 9. Impossible ranged intent cancels and starts a valid fallback.
-10. Stamina regens exactly at 300 ticks and not during pause.
+10. Stamina regenerates exactly at 300 ticks, stops at max, and is disabled for non-active heroes.
 11. Expired status disappears during cleanup.
 12. Event replay equals live final state and state hash.
 13. `critically_injured` hero remains in scene and cannot act.
-14. Ended scene rejects player commands.
+14. A zero-HP enemy is immediately excluded, then cleanup cancels its active intent and emits `scene.entity_removed` before freeing the cell; v2 event replay preserves the same state hash.
+15. Ended scene rejects player commands.
 
 ### Golden scenario
 
-Fixed `rootSeed = "fable-step-c-001"` with the Quarantine Gates fixtures must produce a checked-in event transcript. The transcript compares canonical event type, order, serverTick, revision, entity IDs and public outcome. GM-only numerical details are compared in a separate privileged fixture.
+The first checked-in intent transcript uses `rootSeed = "fable-step-c-001"` with a fixed `slag_shooter` and two equally ranked targets; it compares the complete intent event sequence, RNG audit sidecars and final `stateHash`. As later increments add the remaining Quarantine Gates fixtures, extend the golden coverage without weakening this exact intent transcript. GM-only numerical details remain in the privileged fixture, separate from public projections.
 
 ---
 
@@ -902,10 +894,9 @@ Only after this checklist passes should development proceed to Step D/Stage 4 co
 
 These are not blockers for the headless engine if the interfaces remain versioned:
 
-1. final production RNG algorithm and seed serialization;
-2. whether future complex card effects use a typed effect DSL or code-backed handlers;
-3. full `scene_transfer` payload and campaign-level narrative semantics;
-4. exact stamina overload tuning after playtest;
-5. persistence transaction retry policy under database outage.
+1. whether future complex card effects use a typed effect DSL or code-backed handlers;
+2. full `scene_transfer` payload and campaign-level narrative semantics;
+3. exact stamina overload tuning after playtest;
+4. persistence transaction retry policy under database outage.
 
 Any decision that changes event shape, timer semantics, ordering, or state transitions requires a new Decision Record and contract version review.
