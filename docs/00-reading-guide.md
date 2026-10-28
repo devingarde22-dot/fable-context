@@ -80,6 +80,7 @@ Read these in order when planning the next stage beyond the headless engine:
 28. [Campaign Transition Failure and Recovery](./39-campaign-transition-failure-and-recovery-proposal.md) — crash windows, rollback invalidation, pending approvals, checkpoint consistency and restart recovery.
 29. [Campaign Progression, Expedition Attempts and Checkpoints](./40-campaign-progression-and-checkpoint-semantics-proposal.md) — separates discovery, route access, visits, attempts, node closure, reward eligibility and checkpoint state.
 30. [Architecture Decision Register and Readiness Gates](./41-architecture-decision-register-and-readiness-gates.md) — central list of findings/design gaps, evidence class, priorities and a safe implementation sequence.
+31. [Party Membership, Connection and Reconnect Lifecycle](./42-party-membership-and-reconnect-proposal.md) — identity/membership/connection distinctions, player/GM disconnect defaults, explicit leave and reconnect behavior.
 
 **Status warning:** documents 31–39 are UNCONFIRMED proposals/target contracts. They organize the intended next layer and may guide discussion/design, but do not silently override confirmed rules or prove that the feature exists in code. Before implementation, promote only the selected normative pieces into an ADR/Rule IDs and explicitly versioned contracts.
 
@@ -95,7 +96,7 @@ Read these in order when planning the next stage beyond the headless engine:
 | “Implement NPC dialogue” | 32 → 33 → 34 → 35 → 36 → 37; also 00 for GM/AI authority |
 | “Implement battle-end reset” | 02 (especially RESOURCE/STATUS rules) → 25 → 38 → 37 → 35 acceptance cases; inspect current terminal outcome path before changing source |
 | “Fix replay, request IDs or rollback” | 03 → 04 → 26 → 27–29 → 36 → 39 |
-| “Build multiplayer server/transport” | 26 → 27 → 28 → 03 → 04 → command/event/visibility schemas → 29 → 36 → 39 |
+| “Build multiplayer server/transport” | 26 → 27 → 28 → 03 → 04 → command/event/visibility schemas → 29 → 36 → 39 → 42 |
 | “Handle hidden information / projections” | 00 → 02 visibility rules → 04 Visibility Matrix → 03/04 Baseline → schemas → 27/28/33/36 |
 | “Define node completion, repeat visits, reward eligibility or checkpoint semantics” | 02 MAP/SAVE rules → 25 → 33 → 39 → 40; preserve existing outcome-specific retry and rollback rules |
 | “Choose a database / implement durable saves” | 09 as existing schema context, not a binding selection → 26–28 → 33 → 36 → 39; do not start from tables alone |
@@ -103,6 +104,7 @@ Read these in order when planning the next stage beyond the headless engine:
 | “Ask AI to implement a task” | 26 → exact rule/decision/schema/source/tests for that task → 10 → 13; specify allowed files and explicitly excluded scope |
 | “Investigate a suspected bug” | relevant source/test first → relevant audit (27/29/30/38/39) → reproduce/test; keep a source finding distinct from a runtime-confirmed defect |
 | “Decide what to do next / what blocks release” | [41 Readiness Gates](./41-architecture-decision-register-and-readiness-gates.md) → applicable finding → exact source and test |
+| “Handle disconnects, player leave, reconnect, or GM disconnect” | 28 → 36 → 39 → [42 Session Lifecycle](./42-party-membership-and-reconnect-proposal.md) → reconnect/authorization tests |
 
 
 ## 4. Source-of-truth hierarchy
@@ -179,7 +181,7 @@ City
   → role-filtered projections / reconnect
 ```
 
-This is the design target, not a claim that all steps already exist in the current implementation. See docs 31–41 for the proposed details, acceptance conditions and readiness gates.
+This is the design target, not a claim that all steps already exist in the current implementation. See docs 31–42 for the proposed details, acceptance conditions and readiness gates.
 
 ## 9. Quick links
 
@@ -196,4 +198,5 @@ This is the design target, not a claim that all steps already exist in the curre
 - Crash/restart handling: [39 Campaign Failure and Recovery](./39-campaign-transition-failure-and-recovery-proposal.md)
 - Discovery / retries / rewards / checkpoints: [40 Campaign Progression and Checkpoint Semantics](./40-campaign-progression-and-checkpoint-semantics-proposal.md)
 - What is a bug versus a risk / what next: [41 Architecture Decision Register](./41-architecture-decision-register-and-readiness-gates.md)
+- Player/GM disconnect and reconnect: [42 Party Membership and Reconnect Lifecycle](./42-party-membership-and-reconnect-proposal.md)
 - AI implementation protocol: [10 AI Developer Guide](./10-ai-developer-guide.md) and [13 AI Task Starter](./13-ai-task-starter.md)
