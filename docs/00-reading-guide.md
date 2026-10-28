@@ -13,6 +13,20 @@ Fable is a cooperative party RPG for 2–4 players and one Game Master (GM). Pla
 
 The core design rule is that the server owns game truth. Players send intentions; the server validates and commits outcomes. AI may assist with proposals, text and review, but an AI suggestion is not a game event.
 
+### The gameplay idea in one view
+
+Fable combines a shared tactical scene with asymmetric information. A battle uses a 9×9 grid; players control individual heroes and use their own card-based action options, modes, resources and statuses. Enemies announce/telegraph intents before server-resolved effects, so the party can coordinate around public danger while each phone retains the owner's private hero data. The GM directs the scene, controls consequential outcomes and can access hidden information that must not be broadcast to other roles.
+
+The current headless campaign loop is:
+
+```text
+City/checkpoint → route → node → tactical scene
+       ↑                              ↓
+       └──── outcome / rollback ──────┘
+```
+
+The intended larger player-facing loop extends that foundation with a distinct world-map mode, city points of interest, one shared NPC dialogue session, routes/locations, GM-approved scene entry, battle-end cleanup and recovery/checkpoint processing. That larger loop is described in the proposal packet, not claimed to be implemented.
+
 The current verified implementation is narrower than the full product idea: it includes a headless tactical simulation and a Quarantine Gates campaign slice, not a finished multiplayer world, production UI, or durable online campaign service. The fuller city/world-map/NPC loop is currently a connected set of proposals, not confirmed implementation.
 
 ## 2. The correct reading order
