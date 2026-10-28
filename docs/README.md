@@ -4,7 +4,7 @@
 
 ## Сначала: актуальное состояние
 
-1. [Current State & Architecture](./15-current-state-and-architecture.md) — актуальный milestone, подтверждённые границы, source-of-truth, расхождения и открытые архитектурные вопросы.
+1. [Current State & Architecture](./26-current-state-and-architecture.md) — актуальный milestone, подтверждённые границы, source-of-truth, расхождения и открытые архитектурные вопросы.
 2. [Product Constitution](./00-product-constitution.md) — назначение Fable и неизменяемые принципы.
 3. [Glossary](./01-glossary.md) — единая терминология.
 4. [Confirmed Rules](./02-confirmed-rules.md) — нормативные игровые правила.
