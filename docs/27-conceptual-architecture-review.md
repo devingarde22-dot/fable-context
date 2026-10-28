@@ -224,3 +224,13 @@ Repository facts were checked against the current `fable-rpg/main` tree and PR m
 - `dev/database/schema.ts`
 
 No local source checkout was available through this review path, so no tests, build or runtime probes were executed. The findings above are based on inspected source and documentation; the production blockers are specifically about integrating the current scaffold safely, not a claim that the headless engine itself is broken.
+
+### F-13 — World map, city interactions and NPC dialogue lack one transition contract
+**Severity: P1 for the first complete player-facing loop; not a defect in the current headless engine.**
+
+The current headless slice defines a campaign loop from city through route/node/scene/outcome back to a city checkpoint, but the reviewed context does not yet establish a complete normative interaction contract for world-map discovery and travel, city points of interest/services, dialogue sessions, or the legal transitions between them. Without that layer, separate screens can invent inconsistent state, NPC choices can apply effects twice, client UI can imply travel without server confirmation, and hidden route/dialogue facts can leak through shared projections.
+
+**Recommendation:** define one explicit campaign activity state machine and a transition contract covering preconditions, role permissions, revision checks, idempotency, domain events, reconnect behavior, visibility, and checkpoint boundaries. Keep world map, location map, and tactical grid as distinct concepts. Treat NPC dialogue as a server-owned session with stable choice IDs and validated effects; keep AI output advisory and require GM approval for consequential improvised changes. Specify city recovery semantics instead of assuming that entering town heals or resets all resources/timers.
+
+The proposal is documented in `docs/31-world-map-city-dialogue-transitions.md` in `fable-context`. It is deliberately marked PROPOSAL and does not amend confirmed gameplay rules. No implementation, tests, or build were performed for this design document.
+
