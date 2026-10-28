@@ -65,6 +65,7 @@ Read these in order when planning the next stage beyond the headless engine:
 27. [Hero State Lifecycles and Battle Boundary](./38-hero-state-lifecycle-and-battle-boundary-proposal.md) — what survives between battles, what is destroyed at battle end, deck reconstruction and status lifecycle scope.
 28. [Campaign Transition Failure and Recovery](./39-campaign-transition-failure-and-recovery-proposal.md) — crash windows, rollback invalidation, pending approvals, checkpoint consistency and restart recovery.
 29. [Campaign Progression, Expedition Attempts and Checkpoints](./40-campaign-progression-and-checkpoint-semantics-proposal.md) — separates discovery, route access, visits, attempts, node closure, reward eligibility and checkpoint state.
+30. [Architecture Decision Register and Readiness Gates](./41-architecture-decision-register-and-readiness-gates.md) — central list of findings/design gaps, evidence class, priorities and a safe implementation sequence.
 
 **Status warning:** documents 31–39 are UNCONFIRMED proposals/target contracts. They organize the intended next layer and may guide discussion/design, but do not silently override confirmed rules or prove that the feature exists in code. Before implementation, promote only the selected normative pieces into an ADR/Rule IDs and explicitly versioned contracts.
 
@@ -87,6 +88,8 @@ Read these in order when planning the next stage beyond the headless engine:
 | “Balance combat/content” | 00 → 02 → 05 → 06 Balance Sheet → relevant confirmed Decision Record; do not use proposals as balance authority |
 | “Ask AI to implement a task” | 26 → exact rule/decision/schema/source/tests for that task → 10 → 13; specify allowed files and explicitly excluded scope |
 | “Investigate a suspected bug” | relevant source/test first → relevant audit (27/29/30/38/39) → reproduce/test; keep a source finding distinct from a runtime-confirmed defect |
+| “Decide what to do next / what blocks release” | [41 Readiness Gates](./41-architecture-decision-register-and-readiness-gates.md) → applicable finding → exact source and test |
+
 
 ## 4. Source-of-truth hierarchy
 
@@ -178,4 +181,5 @@ This is the design target, not a claim that all steps already exist in the curre
 - Battle/persistent hero boundary: [38 Hero State Lifecycle](./38-hero-state-lifecycle-and-battle-boundary-proposal.md)
 - Crash/restart handling: [39 Campaign Failure and Recovery](./39-campaign-transition-failure-and-recovery-proposal.md)
 - Discovery / retries / rewards / checkpoints: [40 Campaign Progression and Checkpoint Semantics](./40-campaign-progression-and-checkpoint-semantics-proposal.md)
+- What is a bug versus a risk / what next: [41 Architecture Decision Register](./41-architecture-decision-register-and-readiness-gates.md)
 - AI implementation protocol: [10 AI Developer Guide](./10-ai-developer-guide.md) and [13 AI Task Starter](./13-ai-task-starter.md)
