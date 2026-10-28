@@ -4,7 +4,7 @@ This repository is the canonical context pack for the Fable game project. It des
 
 ## Current project state
 
-The current implementation status is maintained in [docs/15-current-state-and-architecture.md](docs/15-current-state-and-architecture.md). At the checked repository snapshot, **Increment 10 (DR-C-010) is merged into `fable-rpg/main`** by PR [#8](https://github.com/devingarde22-dot/fable-rpg/pull/8), merge commit `b619c77c483c69b253430352c39edc5addb42f14`.
+The current implementation status is maintained in [docs/26-current-state-and-architecture.md](docs/26-current-state-and-architecture.md). At the checked repository snapshot, **Increment 10 (DR-C-010) is merged into `fable-rpg/main`** by PR [#8](https://github.com/devingarde22-dot/fable-rpg/pull/8), merge commit `b619c77c483c69b253430352c39edc5addb42f14`.
 
 Do not treat old handoff text, old open-PR notes, or the original Step C starter task as current status. Historical proposals and old milestones remain useful as history, not as instructions to redo completed work.
 
@@ -12,7 +12,7 @@ Do not treat old handoff text, old open-PR notes, or the original Step C starter
 
 For a new task, use the smallest relevant context packet rather than treating every document as a new implementation task:
 
-1. [Current state and architecture](docs/15-current-state-and-architecture.md) — current milestone, boundaries, known gaps and source precedence.
+1. [Current state and architecture](docs/26-current-state-and-architecture.md) — current milestone, boundaries, known gaps and source precedence.
 2. [Product Constitution](docs/00-product-constitution.md).
 3. [Glossary](docs/01-glossary.md).
 4. [Confirmed Rules](docs/02-confirmed-rules.md) and the relevant section of [System Contracts](docs/03-system-contracts.md).
