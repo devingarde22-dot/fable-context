@@ -64,6 +64,7 @@ Read these in order when planning the next stage beyond the headless engine:
 26. [Default Policy Register](./37-world-interaction-default-policy-register.md) — selected recommended defaults that resolve alternatives left open by earlier concepts.
 27. [Hero State Lifecycles and Battle Boundary](./38-hero-state-lifecycle-and-battle-boundary-proposal.md) — what survives between battles, what is destroyed at battle end, deck reconstruction and status lifecycle scope.
 28. [Campaign Transition Failure and Recovery](./39-campaign-transition-failure-and-recovery-proposal.md) — crash windows, rollback invalidation, pending approvals, checkpoint consistency and restart recovery.
+29. [Campaign Progression, Expedition Attempts and Checkpoints](./40-campaign-progression-and-checkpoint-semantics-proposal.md) — separates discovery, route access, visits, attempts, node closure, reward eligibility and checkpoint state.
 
 **Status warning:** documents 31–39 are UNCONFIRMED proposals/target contracts. They organize the intended next layer and may guide discussion/design, but do not silently override confirmed rules or prove that the feature exists in code. Before implementation, promote only the selected normative pieces into an ADR/Rule IDs and explicitly versioned contracts.
 
@@ -81,6 +82,7 @@ Read these in order when planning the next stage beyond the headless engine:
 | “Fix replay, request IDs or rollback” | 03 → 04 → 26 → 27–29 → 36 → 39 |
 | “Build multiplayer server/transport” | 26 → 27 → 28 → 03 → 04 → command/event/visibility schemas → 29 → 36 → 39 |
 | “Handle hidden information / projections” | 00 → 02 visibility rules → 04 Visibility Matrix → 03/04 Baseline → schemas → 27/28/33/36 |
+| “Define node completion, repeat visits, reward eligibility or checkpoint semantics” | 02 MAP/SAVE rules → 25 → 33 → 39 → 40; preserve existing outcome-specific retry and rollback rules |
 | “Choose a database / implement durable saves” | 09 as existing schema context, not a binding selection → 26–28 → 33 → 36 → 39; do not start from tables alone |
 | “Balance combat/content” | 00 → 02 → 05 → 06 Balance Sheet → relevant confirmed Decision Record; do not use proposals as balance authority |
 | “Ask AI to implement a task” | 26 → exact rule/decision/schema/source/tests for that task → 10 → 13; specify allowed files and explicitly excluded scope |
@@ -175,4 +177,5 @@ This is the design target, not a claim that all steps already exist in the curre
 - Recommended first-slice defaults: [37 Default Policy Register](./37-world-interaction-default-policy-register.md)
 - Battle/persistent hero boundary: [38 Hero State Lifecycle](./38-hero-state-lifecycle-and-battle-boundary-proposal.md)
 - Crash/restart handling: [39 Campaign Failure and Recovery](./39-campaign-transition-failure-and-recovery-proposal.md)
+- Discovery / retries / rewards / checkpoints: [40 Campaign Progression and Checkpoint Semantics](./40-campaign-progression-and-checkpoint-semantics-proposal.md)
 - AI implementation protocol: [10 AI Developer Guide](./10-ai-developer-guide.md) and [13 AI Task Starter](./13-ai-task-starter.md)
