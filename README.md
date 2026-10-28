@@ -1,58 +1,45 @@
 # Fable — Development Context Repository
 
-This public repository is the canonical context pack for the Fable game project.
+This repository is the canonical context pack for the Fable game project. It describes confirmed product/game rules and gives AI developers the current, verified implementation status without duplicating the full codebase.
 
-## How an AI developer should read this repository
+## Current project state
 
-Read in this order:
+The current implementation status is maintained in [docs/15-current-state-and-architecture.md](docs/15-current-state-and-architecture.md). At the checked repository snapshot, **Increment 10 (DR-C-010) is merged into `fable-rpg/main`** by PR [#8](https://github.com/devingarde22-dot/fable-rpg/pull/8), merge commit `b619c77c483c69b253430352c39edc5addb42f14`.
 
-1. `docs/README.md`
-2. `docs/00-product-constitution.md`
-3. `docs/01-glossary.md`
-4. `docs/02-confirmed-rules.md`
-5. `docs/04-step-b-baseline.md`
-6. `docs/03-system-contracts.md`
-7. `docs/05-vertical-slice.md`
-8. `docs/14-step-c-core-engine.md`
-9. `packages/contracts/*.json`
-10. `docs/12-step-a-repository-and-monorepo.md`
-11. `docs/13-ai-task-starter.md`
+Do not treat old handoff text, old open-PR notes, or the original Step C starter task as current status. Historical proposals and old milestones remain useful as history, not as instructions to redo completed work.
 
-Markdown contracts and JSON Schemas are the source of truth. `reference/gdd-site/index.html` is only a visual overview.
+## How to use this context
 
-## Current implementation task
+For a new task, use the smallest relevant context packet rather than treating every document as a new implementation task:
 
-The project is now moving to **Step C — Core Engine & State Machine**. The normative specification is [`docs/14-step-c-core-engine.md`](docs/14-step-c-core-engine.md).
+1. [Current state and architecture](docs/15-current-state-and-architecture.md) — current milestone, boundaries, known gaps and source precedence.
+2. [Product Constitution](docs/00-product-constitution.md).
+3. [Glossary](docs/01-glossary.md).
+4. [Confirmed Rules](docs/02-confirmed-rules.md) and the relevant section of [System Contracts](docs/03-system-contracts.md).
+5. [Step B Baseline](docs/04-step-b-baseline.md) and the relevant Decision Record.
+6. [Step C Core Engine](docs/14-step-c-core-engine.md) for engine behavior.
+7. Relevant JSON Schemas under `packages/contracts/` and the acceptance tests/specification for the task.
+8. [AI Developer Guide](docs/10-ai-developer-guide.md) and [AI Task Starter](docs/13-ai-task-starter.md) for execution protocol.
 
-The AI developer must implement a headless simulation package first. It must not implement React, WebSocket transport, PostgreSQL persistence or AI Copilot until the Step C Definition of Done passes.
+Markdown rule documents and machine-readable schemas define intended behavior and data shape. The implementation, tests, Git history and PR status establish what is currently implemented and verified. If confirmed normative sources conflict, do not guess: report the exact conflict and propose a resolution.
 
-The first implementation increment is deliberately small:
+## Project invariants
 
-1. 9×9 grid and collision;
-2. `player.move`;
-3. 20 Hz clock and 250 ms input windows;
-4. deterministic ordering: players → enemies → environment;
-5. in-memory event journal and replay;
-6. then modes, intents, cards, HP, stamina and statuses.
-
-## Project rules
-
-- The authoritative game state lives on the server.
-- A client command is an intention; only the server creates domain events.
-- Gameplay rules must not be invented without a Decision Record.
-- Visibility is filtered on the backend before serialization.
-- `packages/contracts` contains closed discriminated unions with `additionalProperties: false`.
-- Never commit API keys or secrets.
+- The server-side simulation is authoritative; clients and AI submit intentions/proposals, not outcomes.
+- Only the engine applies gameplay mutations and emits authoritative domain events.
+- Deterministic behavior must not depend on wall-clock time, uncontrolled randomness or unstable collection iteration.
+- Visibility is filtered before serialization.
+- Contracts remain explicit and closed where specified; schema/API changes must be deliberate.
+- Do not invent gameplay rules, balance values, production content or scope without an approved decision.
+- Do not change the gameplay repository while working on this context pack unless explicitly asked.
 
 ## Repository layout
 
 ```text
-docs/                  normative design and implementation documents
+docs/                  normative rules, decisions, implementation guidance and status
 packages/contracts/    JSON Schema contracts
-dev/                   existing TypeScript/Drizzle/room examples
-reference/gdd-site/    optional visual GDD overview
+dev/                   supporting examples/prototypes; not automatically authoritative runtime
+reference/gdd-site/    visual overview only; not a normative source
 ```
 
-## Starter prompt
-
-Use [`docs/13-ai-task-starter.md`](docs/13-ai-task-starter.md) for the exact prompt and file priority when starting an AI coding session.
+Use [docs/13-ai-task-starter.md](docs/13-ai-task-starter.md) to scope a concrete task. It is not permission to restart completed milestones.
