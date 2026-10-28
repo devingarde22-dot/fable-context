@@ -1,148 +1,78 @@
 # Fable — AI Task Starter
 
-**Версия:** 0.1  
-**Назначение:** готовый способ передать Fable AI-разработчику и начать первую задачу.
+**Версия:** 0.2  
+**Назначение:** шаблон передачи конкретной задачи AI-разработчику на текущем этапе проекта.
 
-## 1. Что загружать
+Этот документ не означает, что нужно заново начинать Step A, Step B или Step C. Increment 10 / DR-C-010 уже merged в `fable-rpg/main` (PR #8, merge commit `b619c77c483c69b253430352c39edc5addb42f14`). Сначала уточни цель текущей задачи; используй [Current State & Architecture](./15-current-state-and-architecture.md) для маршрутизации, затем работай только с релевантными источниками.
 
-Для первой задачи не нужно загружать весь HTML-сайт и всю историю чата. Загрузите эти файлы:
+## Task packet
 
-```text
-docs/README.md
-docs/00-product-constitution.md
-docs/01-glossary.md
-docs/02-confirmed-rules.md
-docs/03-system-contracts.md
-docs/04-visibility-matrix.md
-docs/04-step-b-baseline.md
-docs/05-vertical-slice.md
-docs/06-balance-sheet.md
-docs/07-qa-and-acceptance.md
-docs/08-api-specification.md
-docs/09-database-schema.md
-docs/10-ai-developer-guide.md
-docs/11-programming-roadmap.md
-docs/12-step-a-repository-and-monorepo.md
-packages/contracts/command.schema.json
-packages/contracts/event.schema.json
-packages/contracts/intent.schema.json
-packages/contracts/visibility.schema.json
+Заполни этот шаблон для конкретной задачи:
+
+```md
+# Task: <short name>
+
+## Goal
+<one testable sentence>
+
+## Why this is needed
+<confirmed bug, requirement, or measurable benefit; if none, do not change anything>
+
+## Current implementation
+<what is currently true, with relevant file/test references>
+
+## Normative sources
+<confirmed rules, Decision Records, contracts, schemas>
+
+## Allowed files
+<exact files or bounded paths>
+
+## Out of scope
+<unrelated systems and changes explicitly forbidden>
+
+## Acceptance criteria
+- Given ...
+- When ...
+- Then ...
+
+## Verification
+- <specific test/command>
+- <replay/determinism/visibility check if relevant>
+
+## Deliver
+- changed files and diff summary
+- Rule IDs / Decision Records affected
+- exact commands run and their actual results
+- assumptions / open questions
+- remaining risks and known limitations
 ```
 
-`index.html` можно приложить дополнительно как визуальный обзор, но AI-разработчику он не нужен для первой кодовой задачи.
-
-## 2. Что написать AI-разработчику
-
-Скопируйте этот prompt после загрузки файлов:
+## Default instruction to the implementer
 
 ```text
-Ты работаешь как senior TypeScript engineer над проектом Fable.
+Ты работаешь над Fable как senior engineer.
 
-Сначала прочитай только загруженные документы. Приоритет источников:
-1. подтверждённое server state и Step B Baseline;
-2. 00-product-constitution.md;
-3. 02-confirmed-rules.md;
-4. 03-system-contracts.md и typed JSON Schema;
-5. 05-vertical-slice.md;
-6. остальные документы как уточнение.
+Не перечитывай весь проект по умолчанию: используй имеющийся контекст и current-state summary, затем открой только те документы, файлы кода и тесты, которые нужны для этой задачи.
 
-Не придумывай новые gameplay rules. Если найдёшь противоречие, остановись и верни OPEN_QUESTION с указанием файлов и Rule ID.
-Сервер является источником истины. Клиент не рассчитывает HP, урон, доступность карты, цели, таймеры или результат команды.
-Не используй секреты и не добавляй API keys в client code.
+Сначала проверь, есть ли реальная проблема или подтверждённая потребность. Если нет — не вноси изменения. Если проблема пока только предполагается, проведи целевую проверку и обозначь неопределённость.
 
-Твоя первая задача: реализовать Step A — repository и monorepo scaffold.
+Не придумывай gameplay rules, balance values, production content или новую архитектуру без необходимости. Если подтверждённые нормативные источники противоречат друг другу и конфликт влияет на поведение, верни OPEN_QUESTION с точными ссылками и рекомендуемым решением; не выбирай трактовку молча.
 
-Создай только:
-- package.json;
-- pnpm-workspace.yaml;
-- tsconfig.base.json;
-- vitest.workspace.ts;
-- eslint.config.js;
-- prettier.config.cjs;
-- .editorconfig;
-- .gitignore;
-- .env.example;
-- package manifests и пустые src/index.ts для workspace packages;
-- минимальные smoke tests;
-- README с командами запуска.
+Сохраняй server authority, детерминизм, контрактную валидацию, replay/state-hash parity и visibility boundaries. Изменяй только необходимые файлы. Не выполняй несвязанный рефакторинг и не расширяй scope.
 
-Используй границы из 12-step-a-repository-and-monorepo.md:
-- @fable/contracts;
-- @fable/rules;
-- @fable/simulation;
-- @fable/content;
-- @fable/test-fixtures;
-- server;
-- apps/tv;
-- apps/player;
-- apps/gm.
+Проверь diff, выполни подходящие тесты и сообщи только фактически выполненные проверки. Не заявляй, что команда прошла, если ты её не запускал.
 
-Не делай на этой задаче:
-- gameplay implementation;
-- React screens;
-- WebSocket room;
-- PostgreSQL migrations;
-- AI Copilot;
-- Docker deployment;
-- новые игровые правила.
-
-Перед изменением файлов сначала верни короткий PLAN:
-1. какие файлы создашь;
-2. какие зависимости добавишь;
-3. как проверишь отсутствие циклических imports;
-4. какие команды запускаешь.
-
-После моего подтверждения реализуй план.
-
-Финальный ответ верни в формате:
-
-## Summary
-## Changed files
-## Rule IDs covered
-## Tests and commands run
-## Assumptions
-## Open questions
-## Security/visibility review
-## Known limitations
-
-Критерий готовности:
-- pnpm install --frozen-lockfile;
-- pnpm check;
-- TypeScript strict проходит;
-- lint проходит;
-- smoke tests проходят;
-- simulation не зависит от UI, DB, WebSocket или AI;
-- секретов в repository нет.
+Не создавай commit, не делай push в main и не сливай PR без явного разрешения пользователя. Работай в feature branch; перед завершением сообщи итоговый статус.
 ```
 
-## 3. Как работать после первого ответа AI
+## Repository routing
 
-Если AI вернул `PLAN`, проверьте только границы и зависимости. Не нужно проверять каждую строку кода до начала работы.
+- `fable-rpg`: production code, tests, schemas as consumed by runtime, implementation-specific Decision Records and development handoff.
+- `fable-context`: normative context, shared contracts/reference copies, AI guidance and current-state summary.
+- `reference/gdd-site/index.html`: visual reference only; not an authoritative gameplay contract.
 
-После реализации попросите AI выполнить:
+Если задача касается кода, не изменяй `fable-context` только ради отражения каждой строки кода. Обновляй контекст, когда изменились подтверждённое правило, архитектурная граница, статус этапа, публичный контракт или инструкции разработчику.
 
-```text
-Покажи git diff и выполни pnpm check.
-Проверь dependency graph: contracts → rules → simulation → server/apps.
-Подтверди, что gameplay, UI, DB и AI не были добавлены в Step A.
-Если всё проходит, подготовь список файлов для commit, но не выполняй commit без моего разрешения.
-```
+## Verification policy
 
-## 4. Следующая задача после Step A
-
-После принятия scaffold загрузите тот же пакет плюс этот файл и дайте следующую задачу:
-
-```text
-Теперь реализуй Step B, но начни только с @fable/contracts.
-
-1. Подключи command.schema.json, event.schema.json, intent.schema.json и visibility.schema.json.
-2. Добавь runtime validation.
-3. Добавь valid/invalid fixtures.
-4. Добавь тесты на discriminated unions, additionalProperties:false и version fields.
-5. Не реализуй server router и gameplay simulation.
-6. Сначала верни PLAN, затем жди моего подтверждения.
-```
-
-## 5. Что не нужно делать
-
-Не отправляйте AI-разработчику только скриншоты сайта. Скриншот не является контрактом. Не отправляйте только `index.html`: в нём есть контекст, но нет удобных typed API-границ. Не просите «сделай всю игру». Одна AI-задача должна затрагивать ограниченный слой и иметь тестируемый Definition of Done.
+Минимум для изменений в `fable-rpg`: `pnpm check`, `pnpm build` и целевые тесты по изменённому поведению, если эти команды доступны. Для context-only changes: проверить markdown links, ссылки на документы, согласованность статусов и отсутствие противоречий в изменённых разделах. Всегда указывай, что именно было реально проверено.
