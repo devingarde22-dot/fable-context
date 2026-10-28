@@ -6,6 +6,8 @@
 **Debug party:** 3 героя допускается для быстрой симуляции  
 **Старт:** Миревальт, Аверенн
 
+**Уточнение для Increment 10:** headless acceptance, party 2–4, четыре стартовые клетки, in-memory city-save/rollback, outcomes, TEST_ONLY defense cards и исключение `reposition` определены в [DR-C-010](./25-step-c-increment-10-full-headless-slice.md). Для этого increment DR-C-010 имеет приоритет над устаревшими ограничениями этой reference fixture; более широкий product/UI scope документа остаётся вне headless implementation.
+
 ## 1. Цель среза
 
 Проверить полный сквозной loop от города до завершения сцены, не строя всю кампанию:
@@ -50,6 +52,7 @@
 
 Рабочие числа являются tuning values. Контракт намерений считается правильным даже если HP/урон будут изменены после playtest.
 
+Enemy basic-attack templates include immediate `basicAttack` data (not timed intents): `quarantine_chaser` = `{handler: 'melee_strike', rawDamage: 140}`, `slag_shooter` = `{handler: 'melee_strike', rawDamage: 100}`, `extinguisher` = `{handler: 'melee_strike', rawDamage: 100}`. Retreat attack resolution, mode transitions, immunity and replay follow [DR-C-003](./16-step-c-retreat-resolution.md).
 ### 2.3 Intent values
 
 | Intent | Таймер | Условие | Эффект |
@@ -106,9 +109,9 @@ GM запускает обязательную сцену. TV показывае
 
 ### Шаг 4 — первый intent
 
-Преследователь начинает `move_close`, стрелок — `ranged_shot`, Погаситель — `ally_guard` или `bind` по текущему фильтру целей. TV показывает иконки и кольцевые таймеры. Дальняя цель стрелка подсвечивается красным.
+Преследователь начинает `move_close`, стрелок — `ranged_shot`, Погаситель — `ally_guard` или `bind` по текущему фильтру целей. TV показывает иконки и кольцевые таймеры. Дальняя цель стрелка подсвечивается красным только если target cell отдельно разрешена versioned scene visibility/reveal policy; иначе TV получает лишь иконку/таймер.
 
-**Проверки:** public telegraph доступен игрокам; GM видит exact target и формулу; seed записан.
+**Проверки:** public telegraph exposes only visibility-approved fields; GM видит exact target и формулу; seed записан в authoritative audit.
 
 ### Шаг 5 — вход в бой
 
@@ -149,9 +152,12 @@ Baseline damage formula:
 
 ```text
 mitigation = 100 / (100 + targetDefense)
-finalDamage = ceil(rawDamage × mitigation × hitMultiplier)
+mitigatedDamage = ceil(rawDamage × mitigation)
+finalDamage = ceil(mitigatedDamage × multiplier)
 criticalDamage = ceil(finalDamage × 1.5)
 ```
+
+Текущий HP/damage pipeline использует `fable.damage.v1`; карты и критические удары остаются за пределами Step C Increment 4. Damage events и cleanup следуют [DR-C-004](./18-step-c-hp-damage-resolution.md).
 
 Целевые значения для 4 игроков:
 
@@ -170,6 +176,8 @@ criticalDamage = ceil(finalDamage × 1.5)
 ## 6. Acceptance criteria
 
 ### Сервер и симуляция
+- [ ] retreat из melee — одна event group/revision; eligible attacks sorted by `enemyId`, coefficient `1/attackOrder`, HP floors at zero, and no `hp.changed` when unchanged; ranged-to-movement contact without immunity immediately enters melee; replay preserves mode/HP/immunity/group/hash per DR-C-003;
+- [ ] hero at HP 0 is critically injured and cannot act; enemy at HP 0 is excluded immediately and removed/frees its cell in cleanup with replay parity per DR-C-004;
 
 - [ ] headless-сцена проходит без браузера;
 - [ ] fixed seed воспроизводит одинаковые результаты;
