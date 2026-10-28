@@ -234,3 +234,10 @@ The current headless slice defines a campaign loop from city through route/node/
 
 The proposal is documented in `docs/31-world-map-city-dialogue-transitions.md` in `fable-context`. It is deliberately marked PROPOSAL and does not amend confirmed gameplay rules. No implementation, tests, or build were performed for this design document.
 
+### F-14 — Campaign-level interactions need their own revision and protocol domain
+**Severity: P1 before map/dialogue integration; target-design gap, not a current scene-engine bug.**
+
+The current command/event contracts and runtime revision model are oriented around active tactical scenes. The requested world map, route selection, shared dialogue, city rest, pending GM scene approval, and campaign-level checkpoint transitions do not fit safely as ordinary tactical scene commands. Reusing `sceneRevision` for city/dialogue actions would couple campaign changes to an active scene and create ambiguity about stale requests, replay, and which aggregate changed.
+
+**Recommendation:** keep `SimulationEngine` responsible for tactical scene rules and introduce a campaign coordinator above it. Define a separate campaign revision and versioned campaign command/event/projection contracts before adding these features. Distinguish read-only map queries from state-changing map-mode transitions; treat route selection as client-local until confirmation; treat scene requests from dialogue as pending GM approval records, not scene creation. The detailed target is in `docs/33` and `docs/36`; no current schema or source implementation was changed by this review.
+
