@@ -5,7 +5,7 @@
 **Verified repository fact:** PR [#8](https://github.com/devingarde22-dot/fable-rpg/pull/8) is merged; merge commit: `b619c77c483c69b253430352c39edc5addb42f14`.  
 **Verification provenance:** the merged PR description reports `pnpm check` PASS (159 tests: 5 content + 154 rules), `pnpm build` PASS, JSON Schema parsing, `git diff --check` and internal Markdown links PASS. These are recorded project results, not commands rerun by this context synchronization.
 
-This document is the compact routing page for AI developers. It summarizes implementation status and architectural intent; it does not override confirmed rules, Decision Records, schemas or source code.
+This document is the compact routing page for AI developers. It summarizes implementation status and architectural intent; it does not override confirmed rules, Decision Records, schemas or source code. For the initial findings and prioritized integration gates, see [Conceptual Architecture Review](./27-conceptual-architecture-review.md).
 
 ## 1. Current milestone
 
