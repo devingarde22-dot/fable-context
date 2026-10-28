@@ -37,7 +37,7 @@ The current verified implementation is narrower than the full product idea: it i
 2. [Product Constitution](./00-product-constitution.md) — product fantasy, player roles, core experience and non-negotiable principles.
 3. [Glossary](./01-glossary.md) — learn the project's words and distinctions.
 4. [Vertical Slice: Quarantine Gates](./05-vertical-slice.md) — see the intended first playable journey in concrete terms.
-5. [Current State, Architecture & Next Steps](./26-current-state-and-architecture.md) — understand what is actually implemented and what the next architectural gap is.
+5. [Game Roadmap](../game-roadmap/README.md) — newest implementation snapshot after PR #15, phases, readiness gates and prioritized backlog; use [Current State, Architecture & Next Steps](./26-current-state-and-architecture.md) as earlier architectural context.
 
 After this pass, a reader should be able to explain what Fable is, which device serves which purpose, why the server is authoritative, and why the existing headless engine is not the same thing as a complete shipped game.
 
