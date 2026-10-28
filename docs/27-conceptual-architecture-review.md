@@ -116,6 +116,15 @@ At the start of `submit(command)`, the implementation reads `command.requestId` 
 
 **Recommendation:** perform a null/object guard before reading `requestId`, then validate request ID and command shape before deduplication. Keep external adapter validation as a separate boundary. Add a runtime-level test. Source-level only; not runtime reproduced.
 
+### F-12 — Target-selection policies do not choose the optimal candidate
+**Severity: P1 — core enemy AI correctness.**
+
+In `packages/rules/src/intents/targeting.ts`, eligible candidates are sorted by entity ID, then `selectIntentTarget()` uses the score of `candidates[0]` as `topScore`. The resulting tie set therefore contains candidates matching the first ID-sorted entity's score, not necessarily the best score. Non-tied cases can select the wrong target for `nearest_player`, `nearest_visible_player`, `highest_threat`, and `lowest_ally_hp_percentage`.
+
+Existing inspected tests exercise `highest_threat` with tied threat values and `lowest_ally_hp_percentage` with one eligible ally, so they do not expose this defect. See [Combat Targeting Audit](./30-combat-targeting-audit.md).
+
+**Recommendation:** calculate the optimal score across all candidates, then use seeded RNG only among candidates tied at that optimal score. Add non-tied ranking tests for every policy and preserve deterministic candidate ordering for replay. Source-inspection finding; tests/build/runtime probes were not run.
+
 ## 3. Architecture decisions to preserve
 
 These are recommendations aligned with the existing confirmed rules, not new gameplay canon:
