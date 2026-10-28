@@ -1,7 +1,7 @@
 # Increment 10 — Full Headless Vertical Slice (DR-C-010)
 
 **Статус:** `IMPLEMENTED / VERIFIED; MERGED TO fable-rpg/main`
-**Репозиторий:** `fable-rpg`; рабочая ветка реализации — `feat/full-headless-vertical-slice`.
+**Репозиторий:** `fable-rpg`; исходная рабочая ветка реализации — `feat/full-headless-vertical-slice`; итоговый срез слит в `fable-rpg/main`.
 **Основание:** согласованный пользователем план Increment 10 и ответы в сессии 2026-10-28.
 
 ## Цель и границы
