@@ -60,3 +60,8 @@ After implementation, require:
 - [Event Schema](../packages/contracts/event.schema.json)
 - [Intent Schema](../packages/contracts/intent.schema.json)
 - [Visibility Schema](../packages/contracts/visibility.schema.json)
+
+## World interaction design
+
+- [World Map, City, NPC Dialogue & Activity Transitions](./31-world-map-city-dialogue-transitions.md) — conceptual architecture proposal for the end-to-end world interaction loop.
+- [Owner Decisions: World Interaction Loop](./32-owner-decisions-world-interaction-loop.md) — records the project owner's choices and the recommended first playable scope. These choices should be promoted into confirmed rules/ADR before gameplay implementation.
