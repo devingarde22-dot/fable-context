@@ -81,6 +81,13 @@ In `SimulationEngine.ts`, `rollback()` restores the checkpoint and replaces the 
 
 **Recommendation:** before production integration, either reject rollback while the input window has pending commands or explicitly mark discarded requests cancelled and make that terminal state queryable. Track request lifecycle separately from the initial submission receipt. Add tests for retry after accepted, rejected, pending, rollback, and reconnect. This is a concrete uncovered edge case from source inspection; it has not been runtime reproduced in this review.
 
+### F-09 — Replay inputs are not fully version-pinned at the runtime snapshot boundary
+**Severity: P2 — required before durable history or long-lived campaigns.**
+
+The current engine has explicit constants for RNG and damage formula versions, and individual card templates carry a version. However, the inspected `RuntimeState`, `RuntimeSnapshot` and `SimulationEngineConfig` types do not carry a whole ruleset/content bundle identifier. Replay logic imports current implementation constants and reducers. This means the repository has some version markers, but the full set of rules/content dependencies needed to reproduce a historical run is not yet represented as one explicit runtime/journal contract.
+
+**Recommendation:** before storing long-lived campaigns or promising historical replay, pin an immutable ruleset/content bundle ID in the run's initial metadata and snapshots/journal header; retain versions for RNG, damage formulas, event schemas and relevant templates. Replay must either load the matching versioned implementation/content or fail with a clear incompatibility result—never silently replay old history under changed current rules. This is a design gap, not proof that current golden replay is incorrect.
+
 ## 3. Architecture decisions to preserve
 
 These are recommendations aligned with the existing confirmed rules, not new gameplay canon:
@@ -149,7 +156,7 @@ The projection layer should be a pure, testable boundary with allowlisted DTOs. 
 ### P2 — Specify durable command/event transaction semantics
 - Define event + state/checkpoint + idempotency atomicity.
 - Define crash recovery, retries and duplicate handling.
-- Pin ruleset/content/RNG/formula versions needed for replay.
+- Pin ruleset/content/RNG/formula versions needed for replay; current snapshot/config types do not yet carry a whole ruleset/content bundle ID.
 - Choose a storage implementation only after those contracts are clear.
 
 ### P2 — Add operational limits
