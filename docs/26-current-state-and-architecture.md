@@ -119,7 +119,7 @@ Do not build a generic distributed-systems framework now. Resolve each contract 
 ## 7. Recommended next sequence
 
 1. **Stabilization audit:** review merged source against the Increment 10 acceptance criteria; target rejected-command side effects, replay/rollback parity, monotonic counters, and outcome boundary cases. Report only reproducible issues.
-2. **Close stale PR bookkeeping:** PRs #3–#5 were reported in handoff notes as still open even though their commits entered `main` through PR #6. Verify live GitHub state; close only if still open and clearly superseded, with an explanatory note.
+2. **Close stale PR bookkeeping:** live GitHub state checked on 2026-10-28 shows PR #3 and PR #5 are closed as merged; PR #4 remains open although Increment 6 appears to be included in main through the merged ancestry of PR #6. The context repo must not mutate the code repo; if PR #4 is indeed redundant, close it there with an explanatory note after confirming its diff has no unique changes.
 3. **Choose the next product layer explicitly:** persistence, transport/projections, or UI should be separate scoped milestones. Prefer the smallest end-to-end increment with acceptance tests, not simultaneous implementation of all layers.
 4. **Add automated context consistency checks:** validate Markdown links and JSON Schema parsing; flag status text that says an already merged PR is pending. If canonical docs are intentionally copied between repos, compare hashes or generate the mirror from one source.
 5. **Keep current-state and history separate:** update this file when the milestone changes; keep old increment logs as history rather than repeatedly rewriting them into current instructions.
