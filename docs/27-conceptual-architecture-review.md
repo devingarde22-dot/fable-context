@@ -241,3 +241,12 @@ The current command/event contracts and runtime revision model are oriented arou
 
 **Recommendation:** keep `SimulationEngine` responsible for tactical scene rules and introduce a campaign coordinator above it. Define a separate campaign revision and versioned campaign command/event/projection contracts before adding these features. Distinguish read-only map queries from state-changing map-mode transitions; treat route selection as client-local until confirmation; treat scene requests from dialogue as pending GM approval records, not scene creation. The detailed target is in `docs/33` and `docs/36`; no current schema or source implementation was changed by this review.
 
+### F-15 — Battle-end cleanup boundary must cover all battle-scoped runtime
+**Severity: P1 before campaign lifecycle integration; owner-selected target rule, not a verified implementation defect.**
+
+The owner has specified that stamina, tactical deck state, and temporary statuses that are active only during battle reset immediately when a battle ends. This cleanup is distinct from city recovery. Persistent campaign statuses—especially the separate `тяжело ранен` debuff—must survive unless their own confirmed rule says otherwise.
+
+The current Increment 10 context summary documents cleanup of barrier/defense layers at scene completion, but that fact alone does not prove that the whole invariant is implemented across stamina, deck containers/timers, and every status category. This review did not execute a source-level test or runtime probe for the broader rule, so it must not be reported as a confirmed code defect or as already implemented.
+
+**Recommendation:** model status lifecycle scope explicitly (for example, `battle_only` vs `campaign_persistent`), reset combat stamina to the existing next-battle initialization rule (baseline 3), discard tactical hand/discard/rotation placement and rebuild from canonical persistent card sources at the next battle, and remove all explicitly battle-only statuses as part of the terminal scene transition. Apply cleanup exactly once for success, retreat, defeat and GM abort; preserve existing outcome/rollback semantics; make cleanup replayable and test it separately from city HP recovery. See `docs/32`–`docs/37`. The proposal does not change the current schemas or gameplay source.
+
