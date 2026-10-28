@@ -74,6 +74,13 @@ The headless engine remembers request results in memory and recognizes duplicate
 
 **Recommendation:** specify request identity scope (campaign/session/actor), retention and replay semantics before transport/persistence work. Test the same request before and after a tick, timeout, reconnect, rollback and process restart.
 
+### F-08 — Rollback can discard queued commands without reconciling their request receipts
+**Severity: P1 — decide policy before server integration.**
+
+In `SimulationEngine.ts`, `rollback()` restores the checkpoint and replaces the current input window with an empty window. The `requestResults` map is neither restored nor reconciled, and `submit()` stores the initial `queued` receipt. Final accepted/rejected outcomes are returned separately from `advanceOneTick()`; they do not update that map. Therefore a command queued after a checkpoint can be discarded by rollback while its request ID still resolves to a duplicate of the old queued receipt. A caller cannot infer from that duplicate receipt whether the command remains scheduled or was discarded.
+
+**Recommendation:** before production integration, either reject rollback while the input window has pending commands or explicitly mark discarded requests cancelled and make that terminal state queryable. Track request lifecycle separately from the initial submission receipt. Add tests for retry after accepted, rejected, pending, rollback, and reconnect. This is a concrete uncovered edge case from source inspection; it has not been runtime reproduced in this review.
+
 ## 3. Architecture decisions to preserve
 
 These are recommendations aligned with the existing confirmed rules, not new gameplay canon:
@@ -127,7 +134,8 @@ The projection layer should be a pure, testable boundary with allowlisted DTOs. 
 - Preserve `fable-context/docs/26-current-state-and-architecture.md` as the compact routing page, then sync status rather than duplicating another source of truth.
 
 ### P1 — Specify the engine-to-server adapter
-- Define external envelope validation, identity/role binding, actor ownership, revision handling and request ID mapping.
+- Define external envelope validation, identity/role binding, actor ownership, revision handling and request ID mapping. See [Server Adapter Contract Proposal](./28-server-adapter-contract-proposal.md).
+- Define rollback policy for pending requests and terminal request lifecycle before integrating transport retries.
 - Decide where the authoritative engine instance lives per active scene/session.
 - Define the mapping from engine events to client event/projection updates.
 - Do not build new game mechanics into the demo room as a shortcut.
@@ -156,7 +164,7 @@ The projection layer should be a pure, testable boundary with allowlisted DTOs. 
 - Do not add production UI, AI state-changing tools or network retries before identity, idempotency and visibility are defined.
 - Do not infer broad production readiness from the Increment 10 golden scenario.
 - Do not make new gameplay rules to solve infrastructure problems.
-- Do not treat this initial review as a line-by-line audit or claim that tests were rerun.
+- Do not treat this initial review as a line-by-line audit or claim that tests were rerun. The follow-up adapter proposal is conceptual; it does not mean its contract is accepted or implemented.
 
 ## 7. Evidence and verification status
 

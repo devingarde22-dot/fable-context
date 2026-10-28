@@ -15,7 +15,7 @@
 9. [Step C — Core Engine](./14-step-c-core-engine.md) и синхронизированные Decision Records: [Intents](./15-step-c-intent-simulation.md), [Retreat](./16-step-c-retreat-resolution.md), [HP/Damage](./18-step-c-hp-damage-resolution.md), [Stamina](./19-step-c-stamina-regeneration.md), [Card Play](./20-step-c-card-play.md), [Deck Cycle](./21-step-c-deck-cycle.md), [Immobilized](./22-step-c-status-immobilized.md), [Ally Guard](./23-step-c-ally-guard.md), [Increment 10 / DR-C-010](./25-step-c-increment-10-full-headless-slice.md). Документ [24](./24-step-c-increment-10-proposal.md) — SUPERSEDED proposal, не реализовывать.
 10. [AI Developer Guide](./10-ai-developer-guide.md) и [AI Task Starter](./13-ai-task-starter.md) — протокол выполнения конкретной задачи.
 
-Первичный архитектурный аудит: [Conceptual Architecture Review](./27-conceptual-architecture-review.md) — подтверждённые расхождения и приоритетные интеграционные блокеры; это не замена проверке кода и тестов.
+Первичный архитектурный аудит: [Conceptual Architecture Review](./27-conceptual-architecture-review.md) — подтверждённые расхождения и приоритетные интеграционные блокеры; это не замена проверке кода и тестов.\n\nПредлагаемая граница сервера: [Server Adapter Contract Proposal](./28-server-adapter-contract-proposal.md) — роли, команды, идемпотентность, rollback, проекции и критерии интеграции; документ пока является proposal, не принятым контрактом.
 
 Остальные документы — Balance Sheet, API Specification, Database Schema, Programming Roadmap, Step A и Step B Reviews — используются по мере необходимости. Старые документы и proposal могут оставаться полезными как история, но их нельзя считать текущей задачей без проверки статуса.
 
