@@ -18,7 +18,7 @@
 <one testable sentence>
 
 ## Current state
-<relevant implementation status; link to docs/15-current-state-and-architecture.md>
+<relevant implementation status; link to docs/26-current-state-and-architecture.md>
 
 ## Normative sources
 - <specific confirmed rule / contract / Decision Record>
