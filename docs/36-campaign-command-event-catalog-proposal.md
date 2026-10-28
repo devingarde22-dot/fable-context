@@ -132,8 +132,11 @@ Commit proposal terminal status, creation of scene aggregate, active scene/campa
 ### City recovery
 Evaluate eligible heroes from the authoritative city state. Apply HP recovery only to eligible heroes; record the recovery result; commit corresponding events and request result. No unrelated field is mutated.
 
+### Scene end and battle-state cleanup
+Use existing scene outcome rules and eligibility. As soon as the terminal battle outcome is committed, discard battle-only stamina/runtime timer state, tactical deck placement/rotation state, and all statuses explicitly scoped as battle-only. Preserve persistent campaign statuses such as `тяжело ранен`. Represent cleanup with explicit authoritative events/state-transition data that replay can reproduce; never mutate these fields silently after the terminal event. The exact scene-level event name remains a future contract decision, not a current schema addition. Cleanup must occur once for all terminal outcomes and before city recovery/checkpoint processing.
+
 ### Outcome and return
-Use existing scene outcome rules. Coordinator aftermath must be idempotent. If durable storage cannot update campaign state, scene outcome reference, recovery and checkpoint atomically, implement a recoverable staged record with deterministic resumption; do not rely on a timer or human to guess which stage succeeded.
+Use existing scene outcome rules. Coordinator aftermath must be idempotent. If durable storage cannot update campaign state, scene outcome reference, terminal scene cleanup, recovery and checkpoint atomically, implement a recoverable staged record with deterministic resumption; do not rely on a timer or human to guess which stage succeeded.
 
 ## 8. Safe errors
 
@@ -187,4 +190,5 @@ All projections are generated from authoritative campaign state. Clients cannot 
 - A request-ID conflict never reuses the old result for a different payload.
 - Public error payloads do not disclose hidden content.
 - Campaign-level commands do not mutate tactical state directly; scene commands are delegated to the scene engine.
+- A terminal scene outcome is followed immediately by deterministic, once-only cleanup of battle-only stamina, deck runtime and explicitly battle-scoped statuses, while persistent statuses remain untouched.
 - Schema v1 behavior and existing golden replays are not silently changed by adding campaign contracts.
