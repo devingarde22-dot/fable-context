@@ -4,16 +4,19 @@ This repository is the canonical context pack for the Fable game project. It des
 
 ## Current project state
 
-The current implementation status is maintained in [docs/26-current-state-and-architecture.md](docs/26-current-state-and-architecture.md). At the checked repository snapshot, **Increment 10 (DR-C-010) is merged into `fable-rpg/main`** by PR [#8](https://github.com/devingarde22-dot/fable-rpg/pull/8), merge commit `b619c77c483c69b253430352c39edc5addb42f14`.
+The headless engine and campaign slice (PR [#8](https://github.com/devingarde22-dot/fable-rpg/pull/8)) are the foundation. Later integration [PR #14](https://github.com/devingarde22-dot/fable-rpg/pull/14) merged engine-audit fixes, and [PR #15](https://github.com/devingarde22-dot/fable-rpg/pull/15) added the minimal Player/GM WebSocket vertical slice at merge commit `37154a830eab311d8ddf815f13b38bf745522be4`.
 
-Do not treat old handoff text, old open-PR notes, or the original Step C starter task as current status. Historical proposals and old milestones remain useful as history, not as instructions to redo completed work.
+This is a server-side prototype slice, **not a finished browser game**: Player/GM/TV screens, external identity verification, durable database persistence, the full campaign/world/dialogue loop, production content and public deployment remain to be completed. See the [Game Roadmap](game-roadmap/README.md) for the current assessment, phased plan, readiness gates and prioritized backlog.
+
+The older [Current State, Architecture & Next Steps](docs/26-current-state-and-architecture.md) page preserves architectural analysis from an earlier snapshot; use [Game Roadmap — current state](game-roadmap/00-current-state.md) for the post-PR-15 implementation inventory.
 
 ## How to use this context
 
 Start with the [Project Reading Guide](docs/00-reading-guide.md) for the right order of reading, task-specific routing and the source-of-truth hierarchy. For implementation work, use the smallest relevant context packet rather than treating every document as a new implementation task:
 
-1. [Current state and architecture](docs/26-current-state-and-architecture.md) — current milestone, boundaries, known gaps and source precedence.
-2. [Product Constitution](docs/00-product-constitution.md).
+1. [Game Roadmap](game-roadmap/README.md) — newest implementation snapshot after PR #15, path to playable MVP/release and backlog with acceptance criteria.
+2. [Current state and architecture](docs/26-current-state-and-architecture.md) — architectural background and source precedence; it contains an earlier snapshot.
+3. [Product Constitution](docs/00-product-constitution.md).
 3. [Glossary](docs/01-glossary.md).
 4. [Confirmed Rules](docs/02-confirmed-rules.md) and the relevant section of [System Contracts](docs/03-system-contracts.md).
 5. [Step B Baseline](docs/04-step-b-baseline.md) and the relevant Decision Record.
