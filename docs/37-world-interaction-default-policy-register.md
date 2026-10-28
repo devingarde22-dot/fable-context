@@ -48,6 +48,17 @@ No second blocking dialogue, travel commit, city service mutation or scene trans
 
 ## 4. City and recovery defaults
 
+### Battle-end cleanup (separate from city recovery)
+
+Immediately after any terminal battle outcome is committed, run one deterministic cleanup transaction before city recovery or checkpoint work:
+- discard the ended battle's stamina value and stamina-regeneration timer; the next battle initializes according to existing combat-start rules (baseline 3, max still derived from the applicable rules);
+- discard battle-specific hand/draw/discard ordering, mode-excluded card placement, defense-slot state and card-rotation timer. On the next battle rebuild tactical deck state from canonical persistent sources (skills/equipment and other valid non-battle grants); no card is permanently lost merely because it was in the hand or discard at scene end;
+- remove every status explicitly scoped as battle-only, regardless of remaining duration;
+- preserve campaign-persistent status/consequences, especially the separate `тяжело ранен` debuff, unless its own confirmed rule explicitly says otherwise;
+- stop all scene-local intents/timers. No battle-only tick continues after the scene ends.
+
+This cleanup runs for success, retreat, defeat and GM abort, once only, as part of the terminal scene transition. It must be represented in the authoritative journal/replay path. Existing outcome eligibility and outcome-specific checkpoint/rollback behavior are unchanged. Do not classify a status as battle-only from duration alone; use an explicit lifecycle scope.
+
 ### HP
 - On city arrival after an outcome/rollback has produced the authoritative city state, execute one city recovery pass.
 - For each hero without the `тяжело ранен` debuff, set current HP to max HP.
@@ -57,7 +68,7 @@ No second blocking dialogue, travel commit, city service mutation or scene trans
 - If the hero's HP is unchanged, do not emit an HP mutation event.
 
 ### No hidden extra resets
-City entry/rest does not restore stamina, refresh the deck, clear unrelated statuses, reset tactical clocks, alter inventory/equipment, resurrect an ineligible hero, or grant reward items unless a separate confirmed rule explicitly adds that effect.
+City entry/rest does not restore stamina, refresh the deck, clear unrelated statuses, reset tactical clocks, alter inventory/equipment, resurrect an ineligible hero, or grant reward items unless a separate confirmed rule explicitly adds that effect. Battle-end cleanup above is a separate automatic transition and must not be reimplemented or delayed as a city service.
 
 ### Heavy injury
 Keep the existing confirmed STATUS-003 behavior for the incapacitated/critically-injured state. Treat a persistent `тяжело ранен` debuff as distinct from the scene's zero-HP/alive-state mechanics unless the canonical model later defines them as the same field. City arrival cannot silently erase either. A future treatment/clearance mechanic needs its own rule and tests; it is deliberately not invented as a free city service in this first slice.
@@ -66,6 +77,7 @@ Keep the existing confirmed STATUS-003 behavior for the incapacitated/critically
 - No passage of simulated time is attached to inn/rest in the first slice.
 - Every city arrival follows the existing outcome/rollback policy, applies eligible HP recovery, then creates the new city checkpoint.
 - A rest action that changes HP should create/advance the appropriate city checkpoint after the recovery commit; a no-op rest need not create a new checkpoint.
+- Battle-end cleanup occurs before this city arrival sequence; an inn/rest action is not responsible for resetting the ended scene's stamina, deck or temporary statuses.
 - If retreat/defeat/GM abort restores an earlier checkpoint under the existing engine's rules, recovery operates on the restored city state, not discarded expedition state.
 - The campaign coordinator must not change the existing engine's outcome eligibility or reward-unlock policy.
 
