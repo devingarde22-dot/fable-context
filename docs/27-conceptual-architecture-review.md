@@ -102,20 +102,6 @@ At the start of `submit(command)`, the implementation reads `command.requestId` 
 
 **Recommendation:** perform a null/object guard before reading `requestId`; then validate request ID and command shape before deduplication. Keep external adapter validation as a separate boundary. Add a runtime-level test that malformed input fails closed without mutating state. This is source-level only and has not been runtime reproduced.
 
-### F-10 — Request deduplication never advances from the queued receipt to a terminal result
-**Severity: P1 — correctness blocker for retries and reconnect UX.**
-
-This is distinct from rollback: even without rollback, `submit()` stores the initial queued receipt in `requestResults`. `advanceOneTick()` returns final accepted/rejected outcomes in `TickResult.commandResults`, but the inspected code does not replace the map entry with those outcomes. A later retry with the same request ID therefore returns a duplicate of the original queued receipt even if the original command has already been accepted or rejected.
-
-**Recommendation:** update a request lifecycle record when each command resolves, including terminal status, rejection code, event IDs and resulting revision where applicable. Add tests for retry after accepted/rejected outcomes, retry while queued and retry after rollback cancellation. Confirmed by source inspection; not runtime reproduced.
-
-### F-11 — Runtime schema guard is bypassed by dereferencing the command before validation
-**Severity: P2 — defensive API correctness; relevant if malformed runtime input can reach the engine.**
-
-At the start of `submit(command)`, the implementation reads `command.requestId` before calling `isValidCommand(command)`. Although the TypeScript signature requires `InternalCommand`, the validator explicitly checks for a missing/non-object command. A runtime caller passing `null` or `undefined` would throw before receiving `SCHEMA_INVALID`.
-
-**Recommendation:** perform a null/object guard before reading `requestId`, then validate request ID and command shape before deduplication. Keep external adapter validation as a separate boundary. Add a runtime-level test. Source-level only; not runtime reproduced.
-
 ### F-12 — Target-selection policies do not choose the optimal candidate
 **Severity: P1 — core enemy AI correctness.**
 
