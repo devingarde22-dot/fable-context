@@ -79,7 +79,7 @@ The headless engine remembers request results in memory and recognizes duplicate
 
 In `SimulationEngine.ts`, `rollback()` restores the checkpoint and replaces the current input window with an empty window. The `requestResults` map is neither restored nor reconciled, and `submit()` stores the initial `queued` receipt. Final accepted/rejected outcomes are returned separately from `advanceOneTick()`; they do not update that map. Therefore a command queued after a checkpoint can be discarded by rollback while its request ID still resolves to a duplicate of the old queued receipt. A caller cannot infer from that duplicate receipt whether the command remains scheduled or was discarded.
 
-**Recommendation:** before production integration, either reject rollback while the input window has pending commands or explicitly mark discarded requests cancelled and make that terminal state queryable. Track request lifecycle separately from the initial submission receipt. Add tests for retry after accepted, rejected, pending, rollback, and reconnect. This is a concrete uncovered edge case from source inspection; it has not been runtime reproduced in this review.
+**Recommendation:** before production integration, either reject rollback while the input window has pending commands or explicitly mark discarded requests cancelled and make that terminal state queryable. Track request lifecycle separately from the initial submission receipt. F-10 below captures the independent case where retries remain stuck at the initial queued receipt even without rollback. Add tests for retry after accepted, rejected, pending, rollback, and reconnect. This is a concrete uncovered edge case from source inspection; it has not been runtime reproduced in this review.
 
 ### F-09 — Replay inputs are not fully version-pinned at the runtime snapshot boundary
 **Severity: P2 — required before durable history or long-lived campaigns.**
@@ -87,6 +87,29 @@ In `SimulationEngine.ts`, `rollback()` restores the checkpoint and replaces the 
 The current engine has explicit constants for RNG and damage formula versions, and individual card templates carry a version. However, the inspected `RuntimeState`, `RuntimeSnapshot` and `SimulationEngineConfig` types do not carry a whole ruleset/content bundle identifier. Replay logic imports current implementation constants and reducers. This means the repository has some version markers, but the full set of rules/content dependencies needed to reproduce a historical run is not yet represented as one explicit runtime/journal contract.
 
 **Recommendation:** before storing long-lived campaigns or promising historical replay, pin an immutable ruleset/content bundle ID in the run's initial metadata and snapshots/journal header; retain versions for RNG, damage formulas, event schemas and relevant templates. Replay must either load the matching versioned implementation/content or fail with a clear incompatibility result—never silently replay old history under changed current rules. This is a design gap, not proof that current golden replay is incorrect.
+
+### F-10 — Request deduplication never advances from the queued receipt to a terminal result
+**Severity: P1 — correctness blocker for retries and reconnect UX.**
+
+This is distinct from rollback: even when no rollback occurs, `submit()` stores the initial queued receipt in `requestResults`. `advanceOneTick()` returns final accepted/rejected outcomes in `TickResult.commandResults`, but the inspected code does not replace the map entry with those outcomes. A later retry with the same request ID therefore returns a duplicate of the original queued receipt even if the original command has already been accepted or rejected. The duplicate response cannot answer the current lifecycle state.
+
+**Recommendation:** retain a request lifecycle record that is updated when each command resolves, including terminal status, stable rejection code, event IDs and resulting revision where applicable. Add tests for retry after accepted/rejected outcomes, plus retry while queued and after rollback cancellation. This is confirmed by source inspection; runtime behavior was not executed in this review.
+
+### F-11 — Runtime schema guard is bypassed by dereferencing the command before validation
+**Severity: P2 — defensive API correctness; relevant if malformed runtime input can reach the engine.**
+
+At the start of `submit(command)`, the implementation reads `command.requestId` before calling `isValidCommand(command)`. Although the TypeScript signature requires `InternalCommand`, the validator explicitly checks for a missing/non-object command. A runtime caller that supplies `null` or `undefined` will throw before receiving the expected `SCHEMA_INVALID` rejection.
+
+**Recommendation:** perform a null/object guard before reading `requestId`; then validate request ID and command shape before deduplication. Keep external adapter validation as a separate boundary. Add a runtime-level test that malformed input fails closed without mutating state. This is source-level only and has not been runtime reproduced.
+
+### F-12 — Target-selection policies do not choose the optimal candidate
+**Severity: P1 — core enemy AI correctness.**
+
+In `packages/rules/src/intents/targeting.ts`, eligible candidates are sorted by entity ID, then `selectIntentTarget()` uses the score of `candidates[0]` as `topScore`. The resulting tie set therefore contains candidates matching the first ID-sorted entity's score, not necessarily the best score. Non-tied cases can select the wrong target for `nearest_player`, `nearest_visible_player`, `highest_threat`, and `lowest_ally_hp_percentage`.
+
+Existing inspected tests exercise `highest_threat` with tied threat values and `lowest_ally_hp_percentage` with one eligible ally, so they do not expose this defect. See [Combat Targeting Audit](./30-combat-targeting-audit.md).
+
+**Recommendation:** calculate the optimal score across all candidates, then use seeded RNG only among candidates tied at that optimal score. Add non-tied ranking tests for every policy and preserve deterministic candidate ordering for replay. Source-inspection finding; tests/build/runtime probes were not run.
 
 ## 3. Architecture decisions to preserve
 
@@ -187,3 +210,29 @@ Repository facts were checked against the current `fable-rpg/main` tree and PR m
 - `dev/database/schema.ts`
 
 No local source checkout was available through this review path, so no tests, build or runtime probes were executed. The findings above are based on inspected source and documentation; the production blockers are specifically about integrating the current scaffold safely, not a claim that the headless engine itself is broken.
+
+### F-13 — World map, city interactions and NPC dialogue lack one transition contract
+**Severity: P1 for the first complete player-facing loop; not a defect in the current headless engine.**
+
+The current headless slice defines a campaign loop from city through route/node/scene/outcome back to a city checkpoint, but the reviewed context does not yet establish a complete normative interaction contract for world-map discovery and travel, city points of interest/services, dialogue sessions, or the legal transitions between them. Without that layer, separate screens can invent inconsistent state, NPC choices can apply effects twice, client UI can imply travel without server confirmation, and hidden route/dialogue facts can leak through shared projections.
+
+**Recommendation:** define one explicit campaign activity state machine and a transition contract covering preconditions, role permissions, revision checks, idempotency, domain events, reconnect behavior, visibility, and checkpoint boundaries. Keep world map, location map, and tactical grid as distinct concepts. Treat NPC dialogue as a server-owned session with stable choice IDs and validated effects; keep AI output advisory and require GM approval for consequential improvised changes. Specify city recovery semantics instead of assuming that entering town heals or resets all resources/timers.
+
+The proposal is documented in `docs/31-world-map-city-dialogue-transitions.md` in `fable-context`. It is deliberately marked PROPOSAL and does not amend confirmed gameplay rules. No implementation, tests, or build were performed for this design document.
+
+### F-14 — Campaign-level interactions need their own revision and protocol domain
+**Severity: P1 before map/dialogue integration; target-design gap, not a current scene-engine bug.**
+
+The current command/event contracts and runtime revision model are oriented around active tactical scenes. The requested world map, route selection, shared dialogue, city rest, pending GM scene approval, and campaign-level checkpoint transitions do not fit safely as ordinary tactical scene commands. Reusing `sceneRevision` for city/dialogue actions would couple campaign changes to an active scene and create ambiguity about stale requests, replay, and which aggregate changed.
+
+**Recommendation:** keep `SimulationEngine` responsible for tactical scene rules and introduce a campaign coordinator above it. Define a separate campaign revision and versioned campaign command/event/projection contracts before adding these features. Distinguish read-only map queries from state-changing map-mode transitions; treat route selection as client-local until confirmation; treat scene requests from dialogue as pending GM approval records, not scene creation. The detailed target is in `docs/33` and `docs/36`; no current schema or source implementation was changed by this review.
+
+### F-15 — Battle-end cleanup boundary must cover all battle-scoped runtime
+**Severity: P1 before campaign lifecycle integration; owner-selected target rule, not a verified implementation defect.**
+
+The owner has specified that stamina, tactical deck state, and temporary statuses that are active only during battle reset immediately when a battle ends. This cleanup is distinct from city recovery. Persistent campaign statuses—especially the separate `тяжело ранен` debuff—must survive unless their own confirmed rule says otherwise.
+
+The current Increment 10 context summary documents cleanup of barrier/defense layers at scene completion, but that fact alone does not prove that the whole invariant is implemented across stamina, deck containers/timers, and every status category. This review did not execute a source-level test or runtime probe for the broader rule, so it must not be reported as a confirmed code defect or as already implemented.
+
+**Recommendation:** model status lifecycle scope explicitly (for example, `battle_only` vs `campaign_persistent`), reset combat stamina to the existing next-battle initialization rule (baseline 3), discard tactical hand/discard/rotation placement and rebuild from canonical persistent card sources at the next battle, and remove all explicitly battle-only statuses as part of the terminal scene transition. Apply cleanup exactly once for success, retreat, defeat and GM abort; preserve existing outcome/rollback semantics; make cleanup replayable and test it separately from city HP recovery. See [battle-end acceptance cases in docs/35](./35-world-interaction-acceptance-and-delivery-plan.md), the lifecycle/default contracts in [docs/37](./37-world-interaction-default-policy-register.md) and [docs/38](./38-hero-state-lifecycle-and-battle-boundary-proposal.md), and the readiness gate in [docs/41](./41-architecture-decision-register-and-readiness-gates.md). The proposal does not change the current schemas or gameplay source.
+

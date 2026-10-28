@@ -1,9 +1,9 @@
 # Fable — Current State, Architecture & Next Steps
 
-**Status date:** 2026-10-28  
-**Status:** Increment 10 / DR-C-010 merged into `fable-rpg/main`.  
-**Verified repository fact:** PR [#8](https://github.com/devingarde22-dot/fable-rpg/pull/8) is merged; merge commit: `b619c77c483c69b253430352c39edc5addb42f14`.  
-**Verification provenance:** the merged PR description reports `pnpm check` PASS (159 tests: 5 content + 154 rules), `pnpm build` PASS, JSON Schema parsing, `git diff --check` and internal Markdown links PASS. These are recorded project results, not commands rerun by this context synchronization.
+**Status date:** 2026-10-28.  
+**Historical snapshot:** the implementation inventory and milestone statements in this document were captured after PR #8 at `b619c77c483c69b253430352c39edc5addb42f14`; they are not a complete post-PR-15 inventory.  
+**Current implementation update:** [PR #14](https://github.com/devingarde22-dot/fable-rpg/pull/14) integrated engine audit fixes, and [PR #15](https://github.com/devingarde22-dot/fable-rpg/pull/15) added the minimal Player/GM WebSocket vertical slice at `37154a830eab311d8ddf815f13b38bf745522be4`. Use [Game Roadmap](../game-roadmap/README.md) and [Current State after PR #15](../game-roadmap/00-current-state.md) for current status and the path to release.  
+**Verification provenance:** test counts and build results elsewhere in this historical page refer to the original PR #8 report unless explicitly stated otherwise. PR #14/#15 report their own verification in their descriptions. This context-document update did not run code tests or builds.
 
 This document is the compact routing page for AI developers. It summarizes implementation status and architectural intent; it does not override confirmed rules, Decision Records, schemas or source code. For the initial findings and prioritized integration gates, see [Conceptual Architecture Review](./27-conceptual-architecture-review.md). The proposed engine-to-server boundary is documented in [Server Adapter Contract Proposal](./28-server-adapter-contract-proposal.md); it is not yet an accepted ADR.
 
@@ -91,17 +91,13 @@ This deliberately is **not** all-or-nothing batch atomicity. The old context cop
 - event journal, replay/state hash checks, in-memory checkpoint/rollback;
 - campaign wrapper, test-only defense-card effects and scene outcomes.
 
-### Explicitly deferred / not implied by the headless milestone
-- production card catalog and balance work;
-- item rewards and reward inventory;
+### Not included in the original headless slice; prototype integration added later
+- production card catalog and balance work; item rewards and reward inventory;
 - `reposition` intent (not active and not a fallback);
-- runtime pause support (schemas alone do not mean the engine implements pause);
-- real persistence, database migrations and crash recovery;
-- network transport / WebSocket / Colyseus, authentication and deployment;
-- Player/GM/TV UI and production read projections;
-- AI Copilot integration and any state-changing AI proposal workflow.
+- **Transport prototype exists after PR #15:** WebSocket `/ws`, token/membership interfaces, Player/GM projections, move/pause/outcome commands and reconnect token. This is not equivalent to production authentication, a browser UI or a durable online service;
+- **Not established as production-ready:** external identity verification, Player/GM/TV UI (TV screen/projection is not part of the slice), durable database persistence/migrations/crash recovery, full combat command set over transport, AI Copilot integration and state-changing AI proposal workflow.
 
-Do not implement deferred items as “obvious next steps” without a scoped request and acceptance criteria.
+See [Game Roadmap](../game-roadmap/README.md) for the post-PR-15 state and phased delivery plan. Do not implement deferred items without a scoped request, accepted rules and acceptance criteria.
 
 ## 6. Architectural risks to resolve before adding external layers
 
