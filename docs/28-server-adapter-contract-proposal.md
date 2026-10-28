@@ -147,7 +147,7 @@ Do not select or wire a database solely to implement this proposal. Before durab
 - final command statuses/idempotency records for the resolved input window,
 - rules/content/RNG/formula versions required for deterministic replay.
 
-The durable design must answer crash cases before and after commit, duplicate retries after restart, checkpoint restoration, journal continuity and migration/version compatibility. If a full atomic transaction is not practical, specify an explicit write-ahead/recovery protocol instead.
+The durable design must answer crash cases before and after commit, duplicate retries after restart, checkpoint restoration, journal continuity and migration/version compatibility. The current runtime snapshot/config types expose RNG and damage-formula constants indirectly but do not carry a whole ruleset/content bundle ID; add immutable run metadata before promising long-lived replay. If a full atomic transaction is not practical, specify an explicit write-ahead/recovery protocol instead.
 
 ## 8. Error contract
 
