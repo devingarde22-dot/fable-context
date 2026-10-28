@@ -1,45 +1,45 @@
 # Fable — Development Context Repository
 
-This repository is the canonical context pack for the Fable game project. It describes confirmed product/game rules and gives AI developers the current, verified implementation status without duplicating the full codebase.
+This repository is the synchronized context and planning pack for Fable. It does not replace the active code repository, [`devingarde22-dot/fable-rpg`](https://github.com/devingarde22-dot/fable-rpg), whose current `main`, schemas, source, tests, and merged history establish implementation truth.
 
 ## Current project state
 
-The current implementation status is maintained in [docs/26-current-state-and-architecture.md](docs/26-current-state-and-architecture.md). At the checked repository snapshot, **Increment 10 (DR-C-010) is merged into `fable-rpg/main`** by PR [#8](https://github.com/devingarde22-dot/fable-rpg/pull/8), merge commit `b619c77c483c69b253430352c39edc5addb42f14`.
+The audited game-code baseline is `fable-rpg/main` commit [`7770d04`](https://github.com/devingarde22-dot/fable-rpg/commit/7770d04), the PR #18 merge on 2026-10-28. It includes:
 
-Do not treat old handoff text, old open-PR notes, or the original Step C starter task as current status. Historical proposals and old milestones remain useful as history, not as instructions to redo completed work.
+- Step C increments 1–10 and the in-memory headless vertical slice;
+- the PR #9–#13 follow-ups integrated by PR #14;
+- the Player/GM WebSocket vertical slice from PR #15;
+- role-filtered domain-event work (PR #16), corrected target ranking (PR #17), and authoritative pause/restore/outcome lifecycle work (PR #18).
+
+A fresh verification in the paired `fable-rpg` worktree ran `pnpm check` successfully with 189 tests in 43 files, then `pnpm build` and `git diff --check`. The source-level projection fan-out defect found after PR #16 is fixed and regression-tested in the paired maintenance branch; it is not a reason to repeat already-correct target-selection or pause-state changes.
+
+The only open PR in `fable-rpg` is legacy stacked PR #4; its head is already an ancestor of `main`. This repository's open draft PR #5 is a planning proposal, not a replacement for `main` or an approval to implement its world/UI proposals.
 
 ## How to use this context
 
-For a new task, use the smallest relevant context packet rather than treating every document as a new implementation task:
+1. Start with [Current State & Architecture](docs/26-current-state-and-architecture.md) and [Current Backlog & Next Steps](docs/30-current-backlog-and-next-steps.md).
+2. Read [the verified combat-rules inventory](docs/29-verified-combat-rules-inventory.md) for the current state of ranged availability, cards/magic, hit/miss/critical, and damage.
+3. Use the relevant Product Constitution, Confirmed Rule, system contract, Decision Record, schema, source, and test for the specific task.
+4. Treat the draft `game-roadmap/` under PR #5 as non-normative planning material until it is reviewed and merged.
 
-1. [Current state and architecture](docs/26-current-state-and-architecture.md) — current milestone, boundaries, known gaps and source precedence.
-2. [Product Constitution](docs/00-product-constitution.md).
-3. [Glossary](docs/01-glossary.md).
-4. [Confirmed Rules](docs/02-confirmed-rules.md) and the relevant section of [System Contracts](docs/03-system-contracts.md).
-5. [Step B Baseline](docs/04-step-b-baseline.md) and the relevant Decision Record.
-6. [Step C Core Engine](docs/14-step-c-core-engine.md) for engine behavior.
-7. Relevant JSON Schemas under `packages/contracts/` and the acceptance tests/specification for the task.
-8. [AI Developer Guide](docs/10-ai-developer-guide.md) and [AI Task Starter](docs/13-ai-task-starter.md) for execution protocol.
-
-Markdown rule documents and machine-readable schemas define intended behavior and data shape. The implementation, tests, Git history and PR status establish what is currently implemented and verified. If confirmed normative sources conflict, do not guess: report the exact conflict and propose a resolution.
+If confirmed normative sources conflict, change only the affected behavior through an explicit Decision Record. Do not silently choose a convenient implementation, invent balance values, or turn a proposal into product scope.
 
 ## Project invariants
 
 - The server-side simulation is authoritative; clients and AI submit intentions/proposals, not outcomes.
 - Only the engine applies gameplay mutations and emits authoritative domain events.
-- Deterministic behavior must not depend on wall-clock time, uncontrolled randomness or unstable collection iteration.
-- Visibility is filtered before serialization.
+- Deterministic behavior cannot rely on wall-clock time, uncontrolled randomness, or unstable iteration.
+- Visibility is filtered before serialization; projections and event streams follow role policy.
 - Contracts remain explicit and closed where specified; schema/API changes must be deliberate.
-- Do not invent gameplay rules, balance values, production content or scope without an approved decision.
-- Do not change the gameplay repository while working on this context pack unless explicitly asked.
+- This repository carries context and planning; gameplay code belongs in `fable-rpg`.
 
 ## Repository layout
 
 ```text
-docs/                  normative rules, decisions, implementation guidance and status
-packages/contracts/    JSON Schema contracts
-dev/                   supporting examples/prototypes; not automatically authoritative runtime
-reference/gdd-site/    visual overview only; not a normative source
+docs/                  rules, decisions, implementation guidance, current status
+packages/contracts/    mirrored JSON Schema contracts
+dev/                   historical/supporting examples; not active runtime
+reference/gdd-site/    visual overview only; not normative
 ```
 
-Use [docs/13-ai-task-starter.md](docs/13-ai-task-starter.md) to scope a concrete task. It is not permission to restart completed milestones.
+Historical plans and old handoffs remain useful as history, not as instructions to restart completed milestones.

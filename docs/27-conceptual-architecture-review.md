@@ -1,8 +1,10 @@
 # Fable — Conceptual Architecture Review
 
-**Review date:** 2026-10-28  
-**Scope:** repository/docs/source inspection through GitHub; no local build or test command was executed during this review.  
+**Review date:** 2026-10-28
+**Scope:** repository/docs/source inspection through GitHub; no local build or test command was executed during this review.
 **Status:** initial architecture review, not a code-change approval and not a claim of production readiness.
+
+> **Historical-status note:** this review was written against the pre-PR #14 / pre-PR #15 era and contains findings pinned to `b619c77`. It is retained as evidence, not a current-state report. Current routing is [docs/26](./26-current-state-and-architecture.md), current combat decisions are [docs/29](./29-verified-combat-rules-inventory.md), and the audited code baseline is now `fable-rpg/main` `7770d04`. In particular, its statements that README/handoff fixes or an adapter do not yet exist must not be applied without rechecking current source.
 
 This document separates verified repository facts from architectural risks and recommendations. It does not change confirmed gameplay rules. The active code source is `devingarde22-dot/fable-rpg`; this context repository is a synchronized planning aid.
 
@@ -24,7 +26,7 @@ These pieces should not be treated as one integrated production system yet.
 **Severity: P1 — fix documentation before delegating more work.**
 
 The current `fable-rpg/main` tree is at merge commit `b619c77c483c69b253430352c39edc5addb42f14`; PR #8 (Increment 10 / DR-C-010) is merged. However:
-- `fable-rpg/README.md` still says PR #8 is awaiting review and that PR #7 is the latest merged increment.
+- **Snapshot finding — resolved:** project documentation then lagged merged milestone and PR status; current README/handoff route to audited `main` `7770d04`.
 - `fable-rpg/docs/17-development-log-and-handoff.md` still says Increment 10 is pending review and repeats older PR states.
 - `fable-context/docs/26-current-state-and-architecture.md` records the merged state correctly.
 
