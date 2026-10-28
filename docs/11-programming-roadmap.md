@@ -1,7 +1,7 @@
 # Fable — Programming Roadmap
 
-**Версия:** 0.1  
-**Статус:** CONFIRMED PLAN  
+**Версия:** 0.1
+**Статус:** HISTORICAL PLAN — этапы 0–3 ниже уже не являются текущим списком работ; использовать [Current Backlog & Next Steps](./30-current-backlog-and-next-steps.md) вместе с актуальным `fable-rpg/main`.
 **Цель:** довести проект от Markdown-контрактов до первого playable vertical slice.
 
 ## 0. Главный принцип порядка
