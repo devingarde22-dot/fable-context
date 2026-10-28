@@ -10,7 +10,7 @@ Do not treat old handoff text, old open-PR notes, or the original Step C starter
 
 ## How to use this context
 
-For a new task, use the smallest relevant context packet rather than treating every document as a new implementation task:
+Start with the [Project Reading Guide](docs/00-reading-guide.md) for the right order of reading, task-specific routing and the source-of-truth hierarchy. For implementation work, use the smallest relevant context packet rather than treating every document as a new implementation task:
 
 1. [Current state and architecture](docs/26-current-state-and-architecture.md) — current milestone, boundaries, known gaps and source precedence.
 2. [Product Constitution](docs/00-product-constitution.md).
