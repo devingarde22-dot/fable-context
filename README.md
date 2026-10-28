@@ -17,12 +17,12 @@ Start with the [Project Reading Guide](docs/00-reading-guide.md) for the right o
 1. [Game Roadmap](game-roadmap/README.md) — newest implementation snapshot after PR #15, path to playable MVP/release and backlog with acceptance criteria.
 2. [Current state and architecture](docs/26-current-state-and-architecture.md) — architectural background and source precedence; it contains an earlier snapshot.
 3. [Product Constitution](docs/00-product-constitution.md).
-3. [Glossary](docs/01-glossary.md).
-4. [Confirmed Rules](docs/02-confirmed-rules.md) and the relevant section of [System Contracts](docs/03-system-contracts.md).
-5. [Step B Baseline](docs/04-step-b-baseline.md) and the relevant Decision Record.
-6. [Step C Core Engine](docs/14-step-c-core-engine.md) for engine behavior.
-7. Relevant JSON Schemas under `packages/contracts/` and the acceptance tests/specification for the task.
-8. [AI Developer Guide](docs/10-ai-developer-guide.md) and [AI Task Starter](docs/13-ai-task-starter.md) for execution protocol.
+4. [Glossary](docs/01-glossary.md).
+5. [Confirmed Rules](docs/02-confirmed-rules.md) and the relevant section of [System Contracts](docs/03-system-contracts.md).
+6. [Step B Baseline](docs/04-step-b-baseline.md) and the relevant Decision Record.
+7. [Step C Core Engine](docs/14-step-c-core-engine.md) for engine behavior.
+8. Relevant JSON Schemas under `packages/contracts/` and the acceptance tests/specification for the task.
+9. [AI Developer Guide](docs/10-ai-developer-guide.md) and [AI Task Starter](docs/13-ai-task-starter.md) for execution protocol.
 
 Markdown rule documents and machine-readable schemas define intended behavior and data shape. The implementation, tests, Git history and PR status establish what is currently implemented and verified. If confirmed normative sources conflict, do not guess: report the exact conflict and propose a resolution.
 
