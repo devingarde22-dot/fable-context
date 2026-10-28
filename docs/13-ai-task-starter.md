@@ -3,7 +3,7 @@
 **Версия:** 0.2  
 **Назначение:** шаблон передачи конкретной задачи AI-разработчику на текущем этапе проекта.
 
-Этот документ не означает, что нужно заново начинать Step A, Step B или Step C. Increment 10 / DR-C-010 уже merged в `fable-rpg/main` (PR #8, merge commit `b619c77c483c69b253430352c39edc5addb42f14`). Сначала уточни цель текущей задачи; используй [Current State & Architecture](./15-current-state-and-architecture.md) для маршрутизации, затем работай только с релевантными источниками.
+Этот документ не означает, что нужно заново начинать Step A, Step B или Step C. Increment 10 / DR-C-010 уже merged в `fable-rpg/main` (PR #8, merge commit `b619c77c483c69b253430352c39edc5addb42f14`). Сначала уточни цель текущей задачи; используй [Current State & Architecture](./26-current-state-and-architecture.md) для маршрутизации, затем работай только с релевантными источниками.
 
 ## Task packet
 
