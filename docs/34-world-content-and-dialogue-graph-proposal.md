@@ -237,7 +237,7 @@ Effects should be validated as a whole before commit. If a choice declares two e
 The rest POI has a stable service key such as `service.city_rest`. It displays the proposed result before confirmation:
 - hero without `тяжело ранен`: current HP becomes max HP;
 - hero with `тяжело ранен`: no full heal; preserve existing heavy-injury rule;
-- no change to stamina, unrelated status, deck, timer or currency is implied.
+- the city rest handler itself does not change stamina, unrelated statuses, deck, timers or currency; battle-end cleanup is a distinct transition that has already run when a battle ends.
 
 The server recomputes eligibility at commit time. A client cannot submit a health amount. If the party returns from a scene, the campaign coordinator can invoke the same domain recovery handler as part of the return-to-city transaction; reuse one implementation path rather than separate “arrival heal” and “inn heal” formulae.
 
@@ -297,3 +297,22 @@ These are names for discussion, not permission to add events to the canonical `e
 10. Bundle version used in a campaign remains pinned across reconnect/replay.
 11. First-slice content has exactly the intended story NPC, rest POI, departure POI, route and destination; deferred mechanics remain absent.
 12. The same graph and campaign state produce the same offered choices and committed effect order.
+
+
+## 14. Battle-end runtime lifecycle (proposal)
+
+Battle status and resource definitions need an explicit lifecycle scope. Duration by itself is not enough to determine what survives a battle.
+
+Recommended scope values for a future versioned status/content contract:
+- `battle_only`: exists only inside the active battle and is removed at the terminal scene transition, even if its duration timer has time remaining;
+- `campaign_persistent`: survives the end of a battle and follows its own confirmed application/removal rules.
+
+Use the same principle for any other status scope if later mechanics need it; do not infer persistence from the status name or UI icon. Existing temporary combat effects such as immobilization and Ally Guard should be classified according to their actual rule scope, not by a client-side timer heuristic. The separate `тяжело ранен` debuff is preserved unless its own confirmed rule explicitly clears it.
+
+At battle end:
+- discard the battle's stamina runtime/regen timer; the next battle reinitializes through the existing battle-entry rule (baseline 3);
+- discard tactical deck placement and rotation state, including hand, draw/discard order, mode exclusions and defense slot; rebuild from the canonical persistent card sources at the next battle, without permanently deleting cards;
+- clear every `battle_only` status layer immediately;
+- stop all tactical intents/timers and do not advance them outside the ended scene.
+
+These are proposed content/runtime lifecycle tags, not additions to current canonical schemas. A future implementation must version the schema and ensure the cleanup is represented in the authoritative event/replay path. The city rest service remains HP-only and does not perform this cleanup itself.
