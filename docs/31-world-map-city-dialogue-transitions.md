@@ -2,6 +2,7 @@
 
 **Date:** 2026-10-28  
 **Status:** PROPOSAL — conceptual architecture; not a confirmed gameplay contract or implementation task.  
+**Supersession note:** for owner decisions made after this initial concept, follow [docs/32](./32-owner-decisions-world-interaction-loop.md) and [docs/37](./37-world-interaction-default-policy-register.md). The later battle-end cleanup rule resets battle-only stamina, deck runtime and explicitly battle-scoped temporary statuses immediately when a battle ends; this is separate from city HP recovery.  
 **Scope:** fill the missing connective layer between the existing headless expedition/combat engine and the future player-facing game loop.  
 **Repository boundary:** this document belongs to `fable-context`. It does not authorize changes to `fable-rpg` or silently amend confirmed rules.
 
