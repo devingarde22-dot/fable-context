@@ -1,0 +1,174 @@
+# Fable — Conceptual Architecture Review
+
+**Review date:** 2026-10-28  
+**Scope:** repository/docs/source inspection through GitHub; no local build or test command was executed during this review.  
+**Status:** initial architecture review, not a code-change approval and not a claim of production readiness.
+
+This document separates verified repository facts from architectural risks and recommendations. It does not change confirmed gameplay rules. The active code source is `devingarde22-dot/fable-rpg`; this context repository is a synchronized planning aid.
+
+## 1. Executive assessment
+
+The current `packages/rules` headless engine is the right foundation to preserve: it already has a deterministic tick scheduler, command validation, ordered resolution, a domain-event journal, replay/state hashing, in-memory checkpoints and a campaign wrapper. The next conceptual task is **not** to replace it or immediately add a database/network stack. It is to define and test the adapter boundary that will make this engine safely usable by an authenticated multiplayer server.
+
+The most important current distinction is between:
+- **headless rules engine** — the current source of authoritative simulation behavior;
+- **`dev/server/CampaignRoom.ts`** — a separate demo room scaffold with its own state mutation and spawn logic;
+- **contracts and schemas** — intended external protocol shapes;
+- **persistence schema** — a draft data model, not evidence that durable persistence is implemented.
+
+These pieces should not be treated as one integrated production system yet.
+
+## 2. Verified findings
+
+### F-01 — Project status documents contradict the current main branch
+**Severity: P1 — fix documentation before delegating more work.**
+
+The current `fable-rpg/main` tree is at merge commit `b619c77c483c69b253430352c39edc5addb42f14`; PR #8 (Increment 10 / DR-C-010) is merged. However:
+- `fable-rpg/README.md` still says PR #8 is awaiting review and that PR #7 is the latest merged increment.
+- `fable-rpg/docs/17-development-log-and-handoff.md` still says Increment 10 is pending review and repeats older PR states.
+- `fable-context/docs/26-current-state-and-architecture.md` records the merged state correctly.
+
+**Recommendation:** make `fable-rpg/main` README and handoff agree with the actual merged PR history, then keep the context copy synchronized. Do not use the stale handoff to start Increment 10 again.
+
+### F-02 — The demo room is not an adapter over the headless engine
+**Severity: P1 — integration gate before using the room for real gameplay.**
+
+`dev/server/CampaignRoom.ts` directly mutates its own Colyseus `CampaignState` in `handleMove` and `confirmSpawn`. It does not submit commands to `packages/rules`, does not use the engine's tick/input-window scheduler, and broadcasts its own movement/spawn messages. The engine's authoritative rules, revision checks, journal and replay therefore do not govern this demo room.
+
+The mismatch is also visible in the wire vocabulary: the canonical command schema uses `up/down/left/right`, while the room scaffold uses `north/south/east/west`.
+
+**Recommendation:** do not incrementally graft all game rules into `CampaignRoom`. Define a thin server adapter that validates/authenticates external envelopes, maps them to internal engine commands, advances the authoritative engine, and emits role-filtered projections/events. Keep the current room explicitly labelled as a prototype until it is replaced or adapted.
+
+### F-03 — Room role assignment trusts client join options
+**Severity: P1 — security blocker before public deployment.**
+
+The room takes `role` from join options and records it as the session role. The join check verifies that the role is one of `tv/gm/player`, but does not establish identity, GM ownership or campaign membership. The dev README already lists authentication/membership as missing, so this is a known scaffold limitation rather than a newly discovered production exploit.
+
+**Recommendation:** role and campaign membership must be derived from a server-verified identity/session, not accepted as client claims. Add negative tests for role escalation and cross-campaign access before exposing the room beyond a trusted local demo.
+
+### F-04 — Colyseus state replication is not field-level visibility filtering
+**Severity: P1 — security blocker before hidden content is introduced.**
+
+`EntityState` includes `visibility`, but the whole `entities` map is part of the shared room state. A visibility label on a replicated entity is not itself a filter. The current spawn confirmation hardcodes spawned entities to public; the dev README separately lists GM-only filtering as unfinished. If hidden entities or fields are added to this shared state, the metadata does not prevent clients from receiving them.
+
+**Recommendation:** never put GM-only state in a room schema replicated to all roles. Keep authoritative/private state server-side and send separate allowlisted TV, player-subject and GM projections. Add negative tests that inspect actual serialized payloads, reconnect snapshots, errors and logs—not only projection helper outputs.
+
+### F-05 — Spawn confirmation does not consume a server-stored proposal
+**Severity: P1 for any real spawn workflow; prototype-only today.**
+
+`prepareSpawn` returns a proposal to the GM but does not persist a validated proposal. `confirmSpawn` accepts a request ID and entity IDs from the client, then creates hard-coded demo entities at hard-coded positions; it does not verify that the confirmation matches the earlier proposal. The code comments explicitly identify this as demo behavior.
+
+**Recommendation:** represent a proposal as server-owned state keyed by request ID, bind it to campaign/GM/session, validate its expiry and status, and atomically transition it from proposed to confirmed/rejected. Derive entities and positions only from the stored validated proposal and content catalog.
+
+### F-06 — Persistence is not implemented by the presence of a database schema
+**Severity: P2 — design before database integration.**
+
+The repository has a Drizzle schema draft, but the current engine's checkpoints and journal are in-memory. The schema alone does not prove transactional coordination between a committed engine batch, durable event records, checkpoint state and command idempotency.
+
+**Recommendation:** before implementing persistence, define the commit boundary: what must be stored atomically, how a crash between state and event writes is recovered, how rules/content versions are pinned, and how a retry is recognized after reconnect. Keep this as a design gate; do not add a database just to satisfy an abstract roadmap.
+
+### F-07 — Existing idempotency is engine-local, not yet a durable transport guarantee
+**Severity: P2 — network integration gate.**
+
+The headless engine remembers request results in memory and recognizes duplicate request IDs during that engine instance. That is useful for simulation tests, but does not by itself define identity scope, retention, restart behavior or duplicate delivery across reconnects and durable transactions.
+
+**Recommendation:** specify request identity scope (campaign/session/actor), retention and replay semantics before transport/persistence work. Test the same request before and after a tick, timeout, reconnect, rollback and process restart.
+
+## 3. Architecture decisions to preserve
+
+These are recommendations aligned with the existing confirmed rules, not new gameplay canon:
+
+1. **Keep `packages/rules` headless and UI/database/AI independent.**
+2. **Use one authoritative runtime state.** UI state, DB rows, event records and role-specific projections are separate models.
+3. **Keep command-level atomicity inside an ordered batch.** Do not silently change it to all-or-nothing batch semantics.
+4. **Treat accepted events as committed facts.** A rejected command must not leave gameplay mutations or domain events behind.
+5. **Treat visibility as a serialization boundary.** Filter before data enters a client-visible message/schema.
+6. **Version replay dependencies.** Deterministic replay needs the ruleset, content, RNG algorithm and relevant formula versions—not only a seed.
+7. **Keep checkpoints and append-only audit history distinct.** Restoring gameplay state must not erase technical history or rewind monotonic identifiers.
+8. **Keep test fixtures distinct from production content.** A green golden scenario proves a defined slice, not broad balance or production readiness.
+
+## 4. Recommended target boundary
+
+```text
+Authenticated transport / room
+  ├─ authenticate identity and campaign membership
+  ├─ derive role and actor ownership server-side
+  ├─ validate external schema + request limits
+  ├─ deduplicate requestId at the chosen durability boundary
+  └─ map external command -> internal command
+                  |
+                  v
+        packages/rules (authoritative)
+  ├─ deterministic tick/input-window scheduler
+  ├─ command validation and ordered resolution
+  ├─ runtime invariants
+  ├─ domain events + journal/replay
+  └─ snapshots/checkpoints
+                  |
+                  v
+       commit / persistence boundary
+  ├─ durable events and state/checkpoint
+  ├─ rules/content version pinning
+  └─ recovery and idempotency record
+                  |
+                  v
+       role-specific projection layer
+  ├─ TV public projection
+  ├─ player projection for one subject
+  └─ GM projection
+```
+
+The projection layer should be a pure, testable boundary with allowlisted DTOs. Do not replicate the complete engine state and attempt to hide fields in the client.
+
+## 5. Priority order
+
+### P0 — Correct the project map
+- Update `fable-rpg/README.md` and `docs/17-development-log-and-handoff.md` to reflect the merged Increment 10 and current PR states.
+- Preserve `fable-context/docs/26-current-state-and-architecture.md` as the compact routing page, then sync status rather than duplicating another source of truth.
+
+### P1 — Specify the engine-to-server adapter
+- Define external envelope validation, identity/role binding, actor ownership, revision handling and request ID mapping.
+- Decide where the authoritative engine instance lives per active scene/session.
+- Define the mapping from engine events to client event/projection updates.
+- Do not build new game mechanics into the demo room as a shortcut.
+
+### P1 — Define visibility and authorization acceptance tests
+- TV never receives GM-only or another player's private state.
+- Player receives only the projection for their assigned hero.
+- Client-supplied role/actor/campaign IDs cannot grant access.
+- Reconnect snapshots and errors follow the same visibility policy.
+
+### P2 — Specify durable command/event transaction semantics
+- Define event + state/checkpoint + idempotency atomicity.
+- Define crash recovery, retries and duplicate handling.
+- Pin ruleset/content/RNG/formula versions needed for replay.
+- Choose a storage implementation only after those contracts are clear.
+
+### P2 — Add operational limits
+- Bound command payloads, queued commands, effect chains, journal growth and replay work.
+- Add structured observability that excludes hidden information.
+- Set numeric limits based on measurements and threat modeling, not guesses.
+
+## 6. What not to do yet
+
+- Do not rewrite the headless engine because the demo room is separate.
+- Do not connect PostgreSQL before defining the durable commit/recovery contract.
+- Do not add production UI, AI state-changing tools or network retries before identity, idempotency and visibility are defined.
+- Do not infer broad production readiness from the Increment 10 golden scenario.
+- Do not make new gameplay rules to solve infrastructure problems.
+- Do not treat this initial review as a line-by-line audit or claim that tests were rerun.
+
+## 7. Evidence and verification status
+
+Repository facts were checked against the current `fable-rpg/main` tree and PR metadata on 2026-10-28. Relevant paths:
+- `README.md`
+- `docs/17-development-log-and-handoff.md`
+- `packages/rules/src/engine/SimulationEngine.ts`
+- `packages/rules/src/campaign/HeadlessCampaign.ts`
+- `packages/contracts/command.schema.json`
+- `packages/contracts/visibility.schema.json`
+- `dev/server/CampaignRoom.ts`
+- `dev/README.md`
+- `dev/database/schema.ts`
+
+No local source checkout was available through this review path, so no tests, build or runtime probes were executed. The findings above are based on inspected source and documentation; the production blockers are specifically about integrating the current scaffold safely, not a claim that the headless engine itself is broken.
