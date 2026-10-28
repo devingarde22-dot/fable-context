@@ -184,6 +184,19 @@ IDs below are proposed future test names, not tests already present.
 | WLC-E11 | Rest tries to change stamina/status | Unsupported mutation rejected |
 | WLC-E12 | Replay after recovery/checkpoint | Deterministic state and event history under supported versions |
 
+### E2. Battle-end combat-state cleanup
+
+| ID | Scenario | Expected result |
+|---|---|---|
+| WLC-E13 | Confirm terminal outcome | Battle-only cleanup occurs immediately in the terminal scene transition, before city recovery/checkpoint work |
+| WLC-E14 | Finish a battle after spending stamina | Spent stamina and regeneration timer do not carry into the next battle; next battle uses the existing baseline initialization (3) |
+| WLC-E15 | Finish a battle after card draws/plays/discards | Tactical deck containers/rotation are discarded and rebuilt from the canonical persistent loadout next battle; no card is permanently lost by cleanup |
+| WLC-E16 | Finish with temporary battle-only statuses active | Every status tagged battle-only is removed immediately, even if its timer has time remaining |
+| WLC-E17 | Finish with a persistent status or `тяжело ранен` | Persistent status remains; battle cleanup does not erase the injury debuff |
+| WLC-E18 | Duplicate outcome/reconnect/rollback path | Cleanup and its journal representation are applied at most once; current outcome-specific rollback behavior remains intact |
+| WLC-E19 | Replay a battle-end cleanup | Same terminal state and cleanup event ordering are reconstructed deterministically |
+| WLC-E20 | Use inn/rest outside a battle | City HP recovery does not become a second stamina/deck/status cleanup path |
+
 ### F. Visibility and authorization
 
 | ID | Scenario | Expected result |
