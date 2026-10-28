@@ -165,7 +165,7 @@ City
   → role-filtered projections / reconnect
 ```
 
-This is the design target, not a claim that all steps already exist in the current implementation. See docs 31–39 for the proposed details and acceptance conditions.
+This is the design target, not a claim that all steps already exist in the current implementation. See docs 31–41 for the proposed details, acceptance conditions and readiness gates.
 
 ## 9. Quick links
 
