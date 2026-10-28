@@ -19,7 +19,7 @@
 
 Предлагаемая граница сервера: [Server Adapter Contract Proposal](./28-server-adapter-contract-proposal.md) — роли, команды, идемпотентность, rollback, проекции и критерии интеграции; документ пока является proposal, не принятым контрактом.
 
-Углублённые source-аудиты: [Simulation Lifecycle Audit](./29-simulation-lifecycle-audit.md) — request lifecycle, rollback и runtime validation; [Combat Targeting Audit](./30-combat-targeting-audit.md) — ошибка приоритизации целей AI. Проверки основаны на чтении исходников; тесты и сборка не запускались.
+Углублённые source-аудиты: [Simulation Lifecycle Audit](./29-simulation-lifecycle-audit.md) — request lifecycle, rollback и runtime validation; [Combat Targeting Audit](./30-combat-targeting-audit.md) — ошибка приоритизации целей AI. [World Map, City, NPC Dialogue & Transitions](./31-world-map-city-dialogue-transitions.md) — концептуальное предложение для мирового цикла и переходов между активностями; это PROPOSAL, не утверждённый gameplay-контракт. Проверки аудитов основаны на чтении исходников; тесты и сборка не запускались.
 
 Остальные документы — Balance Sheet, API Specification, Database Schema, Programming Roadmap, Step A и Step B Reviews — используются по мере необходимости. Старые документы и proposal могут оставаться полезными как история, но их нельзя считать текущей задачей без проверки статуса.
 
