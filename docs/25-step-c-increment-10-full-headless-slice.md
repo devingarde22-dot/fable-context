@@ -1,6 +1,6 @@
 # Increment 10 — Full Headless Vertical Slice (DR-C-010)
 
-**Статус:** `IMPLEMENTED / VERIFIED; PR #8 REVIEW PENDING`
+**Статус:** `IMPLEMENTED / VERIFIED; MERGED TO fable-rpg/main`
 **Репозиторий:** `fable-rpg`; рабочая ветка реализации — `feat/full-headless-vertical-slice`.
 **Основание:** согласованный пользователем план Increment 10 и ответы в сессии 2026-10-28.
 
@@ -36,7 +36,7 @@ city → route → node → scene → GM-confirmed outcome → city checkpoint
 
 Никакого внешнего command transport не добавляется: ручное GM-подтверждение представлено server-side методом `SimulationEngine.confirmOutcome`. In-memory campaign wrapper управляет city/route/node/scene метаданными и сохраняет city checkpoints. Scene transfer между разными движками и награды-предметы остаются вне Increment 10.
 
-Проверка реализации: `pnpm check` — PASS (159 tests: 5 в `content`, 154 в `rules`; 36 rules test files); `pnpm build` — PASS для обоих пакетов. Отдельно проверены JSON Schema parse, `git diff --check`, barrier cleanup в конце сцены, self-target Ally Guard и defeat replay parity. Golden-сценарий Quarantine Gates с четырьмя героями проходит полный цикл `city → route → node → scene → success → city checkpoint`, повторяется детерминированно и совпадает с journal replay по state hash. [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) открыт на review; изменения ещё не слиты в `main`.
+Результаты проверки, зафиксированные в merged PR: `pnpm check` — PASS (159 tests: 5 в `content`, 154 в `rules`; 36 rules test files); `pnpm build` — PASS для обоих пакетов. Также были отмечены проверки JSON Schema parse, `git diff --check`, barrier cleanup в конце сцены, self-target Ally Guard и defeat replay parity. Golden-сценарий Quarantine Gates с четырьмя героями проходит цикл `city → route → node → scene → success → city checkpoint`, повторяется детерминированно и совпадает с journal replay по state hash. [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) слит в `fable-rpg/main` коммитом `b619c77c483c69b253430352c39edc5addb42f14`. Эти результаты перенесены из PR/статусных источников; команды не запускались повторно при обновлении контекстного документа.
 
 ## Источники
 
