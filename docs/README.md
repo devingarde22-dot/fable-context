@@ -1,10 +1,11 @@
 # Fable — Development Context Pack
 
-Этот репозиторий передаёт AI-разработчику согласованный продуктовый контекст, нормативные правила и актуальный статус реализации. Это не список задач, которые нужно повторно реализовать.
+Этот репозиторий передаёт согласованный продуктовый контекст, нормативные правила, актуальный статус реализации и маршруты чтения для разных типов задач. Это не список задач, которые нужно повторно реализовать.
 
-## Сначала: актуальное состояние
+## Сначала: выбери маршрут чтения
 
-1. [Current State & Architecture](./26-current-state-and-architecture.md) — актуальный milestone, подтверждённые границы, source-of-truth, расхождения и открытые архитектурные вопросы.
+1. **[Project Reading Guide & Context Router](./00-reading-guide.md)** — правильный порядок знакомства с идеей Fable, source-of-truth, быстрые ссылки по типам работ и шаблон выдачи задачи разработчику.
+2. [Current State & Architecture](./26-current-state-and-architecture.md) — актуальный milestone, подтверждённые границы, source-of-truth, расхождения и открытые архитектурные вопросы.
 2. [Product Constitution](./00-product-constitution.md) — назначение Fable и неизменяемые принципы.
 3. [Glossary](./01-glossary.md) — единая терминология.
 4. [Confirmed Rules](./02-confirmed-rules.md) — нормативные игровые правила.
@@ -70,5 +71,7 @@ After implementation, require:
 - [World Interaction Acceptance and Delivery Plan](./35-world-interaction-acceptance-and-delivery-plan.md) — end-to-end golden path, detailed acceptance matrix, test layers, phases and exit gates.
 - [Campaign Command, Event and Projection Catalog](./36-campaign-command-event-catalog-proposal.md) — candidate campaign protocol operations, idempotency lifecycle, atomic commit boundaries, errors and role projections.
 - [Default Policy Register for the First World Interaction Slice](./37-world-interaction-default-policy-register.md) — resolves low-level design alternatives with recommended defaults so an implementer does not have to guess.
+- [Hero State Lifecycles and Battle Boundary](./38-hero-state-lifecycle-and-battle-boundary-proposal.md) — separates persistent hero sources from battle runtime and defines end-of-battle lifecycle invariants.
+- [Campaign Transition Failure and Recovery Model](./39-campaign-transition-failure-and-recovery-proposal.md) — crash windows, pending approvals, rollback invalidation and recovery consistency.
 
 These documents form a connected design packet and all remain UNCONFIRMED PROPOSAL. The default policy register supersedes exploratory alternatives in earlier proposal documents only where it explicitly states a choice; it never overrides existing confirmed rules or current source behavior. The packet does not change confirmed rules or current schemas. Promote the selected rules into an ADR/Rule IDs and versioned contracts before implementing gameplay code.
