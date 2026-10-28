@@ -91,17 +91,13 @@ This deliberately is **not** all-or-nothing batch atomicity. The old context cop
 - event journal, replay/state hash checks, in-memory checkpoint/rollback;
 - campaign wrapper, test-only defense-card effects and scene outcomes.
 
-### Explicitly deferred / not implied by the headless milestone
-- production card catalog and balance work;
-- item rewards and reward inventory;
+### Not included in the original headless slice; prototype integration added later
+- production card catalog and balance work; item rewards and reward inventory;
 - `reposition` intent (not active and not a fallback);
-- runtime pause support (schemas alone do not mean the engine implements pause);
-- real persistence, database migrations and crash recovery;
-- network transport / WebSocket / Colyseus, authentication and deployment;
-- Player/GM/TV UI and production read projections;
-- AI Copilot integration and any state-changing AI proposal workflow.
+- **Transport prototype exists after PR #15:** WebSocket `/ws`, token/membership interfaces, Player/GM projections, move/pause/outcome commands and reconnect token. This is not equivalent to production authentication, a browser UI or a durable online service;
+- **Not established as production-ready:** external identity verification, Player/GM/TV UI (TV screen/projection is not part of the slice), durable database persistence/migrations/crash recovery, full combat command set over transport, AI Copilot integration and state-changing AI proposal workflow.
 
-Do not implement deferred items as “obvious next steps” without a scoped request and acceptance criteria.
+See [Game Roadmap](../game-roadmap/README.md) for the post-PR-15 state and phased delivery plan. Do not implement deferred items without a scoped request, accepted rules and acceptance criteria.
 
 ## 6. Architectural risks to resolve before adding external layers
 
