@@ -74,5 +74,6 @@ After implementation, require:
 - [Hero State Lifecycles and Battle Boundary](./38-hero-state-lifecycle-and-battle-boundary-proposal.md) — separates persistent hero sources from battle runtime and defines end-of-battle lifecycle invariants.
 - [Campaign Transition Failure and Recovery Model](./39-campaign-transition-failure-and-recovery-proposal.md) — crash windows, pending approvals, rollback invalidation and recovery consistency.
 - [Campaign Progress, Expedition Attempts and Checkpoint Semantics](./40-campaign-progression-and-checkpoint-semantics-proposal.md) — separates world discovery, route availability, node visits/attempts, rewards and checkpoint state.
+- [Architecture Decision Register and Readiness Gates](./41-architecture-decision-register-and-readiness-gates.md) — centralizes evidence classes, prioritized findings and a safe implementation sequence.
 
 These documents form a connected design packet and all remain UNCONFIRMED PROPOSAL. The default policy register supersedes exploratory alternatives in earlier proposal documents only where it explicitly states a choice; it never overrides existing confirmed rules or current source behavior. The packet does not change confirmed rules or current schemas. Promote the selected rules into an ADR/Rule IDs and versioned contracts before implementing gameplay code.
